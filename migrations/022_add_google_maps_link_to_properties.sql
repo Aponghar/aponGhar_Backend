@@ -1,0 +1,1 @@
+ALTER TABLE properties ADD COLUMN google_maps_link VARCHAR(500) DEFAULT NULL;
