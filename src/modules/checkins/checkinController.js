@@ -3,6 +3,7 @@ const checkinService = require("./checkinService");
 const {
   checkinSchema,
   ownerCheckinSchema,
+  manualCheckinSchema,
 } = require("./checkinValidation");
 
 const initiateCheckIn = async (req, res, next) => {
@@ -64,6 +65,31 @@ const ownerCheckIn = async (req, res, next) => {
       req.user.id,
       value.booking_code,
       value.assigned_room_id
+    );
+
+    res.status(201).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const ownerManualCheckIn = async (req, res, next) => {
+  try {
+    const { error, value } = manualCheckinSchema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.details[0].message,
+      });
+    }
+
+    const result = await checkinService.ownerManualCheckIn(
+      req.user.id,
+      value
     );
 
     res.status(201).json({
@@ -280,6 +306,7 @@ module.exports = {
   initiateCheckIn,
   getOwnerBookingForCheckIn,
   ownerCheckIn,
+  ownerManualCheckIn,
   getOwnerCheckInHistory,
   getPropertyCheckIns,
   confirmCheckIn,

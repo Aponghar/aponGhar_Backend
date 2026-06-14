@@ -30,7 +30,56 @@ const ownerCheckinSchema = Joi.object({
     }),
 });
 
+const manualCheckinSchema = Joi.object({
+  assigned_room_id: Joi.number()
+    .integer()
+    .positive()
+    .required()
+    .messages({
+      "number.base": "Room ID must be a number",
+      "any.required": "Room ID is required",
+    }),
+  guest_name: Joi.string()
+    .trim()
+    .min(2)
+    .max(100)
+    .required()
+    .messages({
+      "string.empty": "Guest name is required",
+      "any.required": "Guest name is required",
+    }),
+  guest_email: Joi.string()
+    .trim()
+    .email()
+    .max(150)
+    .allow(null, "")
+    .optional(),
+  guest_phone: Joi.string()
+    .trim()
+    .min(5)
+    .max(20)
+    .allow(null, "")
+    .optional(),
+  check_in_date: Joi.date()
+    .iso()
+    .required()
+    .messages({
+      "any.required": "Check-in date is required",
+    }),
+  check_out_date: Joi.date()
+    .iso()
+    .required()
+    .messages({
+      "any.required": "Check-out date is required",
+    }),
+  guests: Joi.number()
+    .integer()
+    .positive()
+    .default(1),
+});
+
 module.exports = {
   checkinSchema,
   ownerCheckinSchema,
+  manualCheckinSchema,
 };

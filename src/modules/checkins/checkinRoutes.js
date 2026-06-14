@@ -9,6 +9,7 @@ const {
   initiateCheckIn,
   getOwnerBookingForCheckIn,
   ownerCheckIn,
+  ownerManualCheckIn,
   getOwnerCheckInHistory,
   getPropertyCheckIns,
   confirmCheckIn,
@@ -37,6 +38,13 @@ router.post(
   authMiddleware,
   roleMiddleware("OWNER"),
   ownerCheckIn
+);
+
+router.post(
+  "/owner/manual-checkin",
+  authMiddleware,
+  roleMiddleware("OWNER"),
+  ownerManualCheckIn
 );
 
 router.get(

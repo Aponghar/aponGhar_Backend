@@ -4,6 +4,14 @@ const {
   toMoney,
 } = require("../../utils/pricing");
 
+const formatDateOnly = (value) => {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const normalizeBookingCode = (bookingCode) =>
   String(bookingCode || "").trim().toUpperCase();
 
@@ -189,6 +197,11 @@ const payCommission = async (ownerId, commissionId, paymentData) => {
 };
 
 const ownerCheckOut = async (ownerId, checkinId) => {
+  const checkIn = await checkinRepository.getCheckInById(checkinId);
+  if (!checkIn) {
+    throw new Error("Check-in not found");
+  }
+
   const result = await checkinRepository.markOwnerCheckOut(
     ownerId,
     checkinId
@@ -198,8 +211,168 @@ const ownerCheckOut = async (ownerId, checkinId) => {
     throw new Error("Check-in not found or already checked out");
   }
 
+  // Automatically unlock the earning on check-out if still pending
+  try {
+    const financeService = require("../finance/financeService");
+    await financeService.unlockOwnerEarning(checkIn.booking_id);
+  } catch (err) {
+    console.error("Failed to unlock owner earning on checkout:", err.message);
+  }
+
+  // Release room inventory if check-out is early
+  try {
+    const bookingRepository = require("../bookings/bookingRepository");
+    const booking = await bookingRepository.getBookingById(checkIn.booking_id);
+    if (booking) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const checkoutDate = new Date(booking.check_out_date);
+      checkoutDate.setHours(0, 0, 0, 0);
+
+      if (today < checkoutDate) {
+        const checkinDate = new Date(booking.check_in_date);
+        checkinDate.setHours(0, 0, 0, 0);
+        const releaseStartDate = checkinDate > today ? checkinDate : today;
+
+        const roomService = require("../rooms/roomService");
+        await roomService.releaseRoomInventory(
+          booking.room_id,
+          formatDateOnly(releaseStartDate),
+          formatDateOnly(checkoutDate),
+          booking.booked_rooms || 1
+        );
+      }
+    }
+  } catch (err) {
+    console.error("Failed to release room inventory on early checkout:", err.message);
+  }
+
   return {
     message: "Guest checked out successfully. Room is available again.",
+  };
+};
+
+const ownerManualCheckIn = async (ownerId, checkInData) => {
+  const {
+    assigned_room_id,
+    guest_name,
+    guest_email,
+    guest_phone,
+    check_in_date,
+    check_out_date,
+    guests
+  } = checkInData;
+
+  const pool = require("../../config/db");
+  const bookingRepository = require("../bookings/bookingRepository");
+  const roomService = require("../rooms/roomService");
+
+  // 1. Verify room ownership
+  const [rooms] = await pool.query(
+    `SELECT r.*, p.id AS property_id, p.owner_id
+     FROM room r
+     JOIN properties p ON r.property_id = p.id
+     WHERE r.id = ? AND p.owner_id = ? AND r.is_active = TRUE AND p.is_active = TRUE AND p.approval_status = 'APPROVED'`,
+    [assigned_room_id, ownerId]
+  );
+  const room = rooms[0];
+  if (!room) {
+    throw new Error("Room not found, unauthorized, or property is inactive");
+  }
+
+  const checkIn = new Date(check_in_date);
+  const checkOut = new Date(check_out_date);
+  if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+    throw new Error("Invalid check-in or check-out date");
+  }
+  if (checkIn >= checkOut) {
+    throw new Error("Check-out date must be after check-in date");
+  }
+
+  const formattedCheckIn = formatDateOnly(check_in_date);
+  const formattedCheckOut = formatDateOnly(check_out_date);
+
+  // 2. Check overlap for specific physical room
+  const [overlaps] = await pool.query(
+    `SELECT ci.id
+     FROM check_ins ci
+     JOIN bookings b ON ci.booking_id = b.id
+     WHERE ci.assigned_room_id = ?
+       AND ci.status != 'CANCELLED'
+       AND ci.checked_out_at IS NULL
+       AND b.check_in_date < ?
+       AND b.check_out_date > ?`,
+    [assigned_room_id, formattedCheckOut, formattedCheckIn]
+  );
+  if (overlaps.length > 0) {
+    throw new Error("This room is already occupied or booked for the selected dates");
+  }
+
+  // 3. Lock room inventory
+  await roomService.lockRoomInventory(
+    room.id,
+    formattedCheckIn,
+    formattedCheckOut,
+    1
+  );
+
+  // 4. Create booking record
+  const bookingCode = 'MANUAL_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5).toUpperCase();
+  const specialRequests = `Manual walk-in booking.${guest_phone ? ` Contact: ${guest_phone}` : ''}`;
+
+  const bookingResult = await bookingRepository.createBooking({
+    booking_code: bookingCode,
+    user_id: ownerId,
+    room_id: room.id,
+    property_id: room.property_id,
+    booking_type: 'NIGHTLY',
+    pricing_option: 'PER_NIGHT',
+    check_in_date: formattedCheckIn,
+    check_in_time: '12:00:00',
+    check_out_date: formattedCheckOut,
+    check_out_time: '11:00:00',
+    guests: guests || 1,
+    booked_rooms: 1,
+    guest_name: guest_name,
+    guest_email: guest_email || null,
+    guest_age: 30, // placeholder age
+    customer_name: guest_name,
+    total_amount: 0.00,
+    booking_base_amount: 0.00,
+    booking_commission_percentage: 0.00,
+    booking_commission_amount: 0.00,
+    booking_unit_base_price: 0.00,
+    booking_unit_selling_price: 0.00,
+    coupon_id: null,
+    coupon_discount: 0.00,
+    wallet_used: 0.00,
+    gateway_paid: 0.00,
+    payment_method: 'OFFLINE',
+    special_requests: specialRequests
+  });
+
+  const bookingId = bookingResult.insertId;
+
+  // Confirm booking
+  await bookingRepository.updateBookingStatus(bookingId, 'CONFIRMED', 'PAID');
+
+  // 5. Create check-in
+  const checkInResult = await checkinRepository.createCheckIn({
+    booking_id: bookingId,
+    user_id: ownerId,
+    owner_id: ownerId,
+    property_id: room.property_id,
+    room_id: room.id,
+    assigned_room_id: assigned_room_id,
+    booking_amount: 0.00,
+    commission_percentage: 0.00,
+    commission_amount: 0.00
+  });
+
+  return {
+    message: "Room manually marked as occupied",
+    booking_code: bookingCode,
+    checkin_id: checkInResult.insertId
   };
 };
 
@@ -219,4 +392,5 @@ module.exports = {
   getOwnerCommissionSummary,
   payCommission,
   ownerCheckOut,
+  ownerManualCheckIn,
 };

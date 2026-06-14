@@ -846,16 +846,18 @@ const confirmBooking =
                     bookingId
                 );
 
-        // SEND EMAIL
-        await safeSendBookingConfirmation({
+        // SEND EMAIL (run in background to avoid request timeouts)
+        safeSendBookingConfirmation({
 
                 email:
                     booking.guest_email ||
-                    user.email,
+                    user?.email ||
+                    "",
 
                 name:
                     booking.customer_name ||
-                    user.full_name,
+                    user?.full_name ||
+                    "",
 
                 guest_name:
                     booking.guest_name,
