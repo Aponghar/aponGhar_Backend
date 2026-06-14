@@ -16,11 +16,11 @@ const bookingSchema = Joi.object({
     check_out_date: Joi.date().iso().required(),
 
     check_in_time: Joi.string()
-        .pattern(/^([01]\d|2[0-3]):[0-5]\d$/)
+        .pattern(/^([01]\d|2[0-3]):00$/)
         .required(),
 
     check_out_time: Joi.string()
-        .pattern(/^([01]\d|2[0-3]):[0-5]\d$/)
+        .pattern(/^([01]\d|2[0-3]):00$/)
         .allow("", null)
         .optional(),
 
