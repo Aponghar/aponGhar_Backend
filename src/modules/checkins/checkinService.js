@@ -219,32 +219,38 @@ const ownerCheckOut = async (ownerId, checkinId) => {
     console.error("Failed to unlock owner earning on checkout:", err.message);
   }
 
-  // Release room inventory if check-out is early
+  // Release room inventory on checkout
   try {
     const bookingRepository = require("../bookings/bookingRepository");
     const booking = await bookingRepository.getBookingById(checkIn.booking_id);
     if (booking) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const checkoutDate = new Date(booking.check_out_date);
-      checkoutDate.setHours(0, 0, 0, 0);
+      const roomService = require("../rooms/roomService");
+      const checkinDate = new Date(booking.check_in_date);
+      checkinDate.setHours(0, 0, 0, 0);
 
-      if (today < checkoutDate) {
-        const checkinDate = new Date(booking.check_in_date);
-        checkinDate.setHours(0, 0, 0, 0);
-        const releaseStartDate = checkinDate > today ? checkinDate : today;
-
-        const roomService = require("../rooms/roomService");
-        await roomService.releaseRoomInventory(
-          booking.room_id,
-          formatDateOnly(releaseStartDate),
-          formatDateOnly(checkoutDate),
-          booking.booked_rooms || 1
+      // For hourly bookings on the same day, inventory end date is check_in + 1 day
+      let inventoryEndDate;
+      if (
+        booking.booking_type === "HOURLY" &&
+        formatDateOnly(booking.check_in_date) ===
+          formatDateOnly(booking.check_out_date)
+      ) {
+        inventoryEndDate = formatDateOnly(
+          new Date(checkinDate.getTime() + 24 * 60 * 60 * 1000)
         );
+      } else {
+        inventoryEndDate = formatDateOnly(booking.check_out_date);
       }
+
+      await roomService.releaseRoomInventory(
+        booking.room_id,
+        formatDateOnly(booking.check_in_date),
+        inventoryEndDate,
+        booking.booked_rooms || 1
+      );
     }
   } catch (err) {
-    console.error("Failed to release room inventory on early checkout:", err.message);
+    console.error("Failed to release room inventory on checkout:", err.message);
   }
 
   return {

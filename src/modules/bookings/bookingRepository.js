@@ -433,6 +433,8 @@ const getOwnerBookings =
 
                 b.rejection_reason,
 
+                b.special_requests,
+
                 b.created_at,
 
                 u.full_name AS user_full_name,
