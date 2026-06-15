@@ -725,6 +725,23 @@ async (userId) => {
     );
 };
 
+const getRecentWalletCredits =
+async () => {
+
+    const [rows] =
+    await pool.query(
+        `SELECT wt.*, w.user_id, w.wallet_type
+        FROM wallet_transactions wt
+        JOIN wallets w ON wt.wallet_id = w.id
+        WHERE wt.transaction_type = 'CREDIT'
+          AND wt.description LIKE 'Admin credit:%'
+        ORDER BY wt.created_at DESC
+        LIMIT 50`
+    );
+
+    return rows;
+};
+
 module.exports = {
 
     getDashboardStats,
@@ -779,5 +796,8 @@ module.exports = {
 
     getPendingCommissionsByOwner,
 
-    getUserById
+    getUserById,
+
+    getRecentWalletCredits
 };
+

@@ -468,6 +468,10 @@ async (userId, amount, adminMessage) => {
     };
 };
 
+const getRecentWalletCredits = async () => {
+    return await adminRepository.getRecentWalletCredits();
+};
+
 module.exports = {
 
     getDashboard,
@@ -520,5 +524,8 @@ module.exports = {
 
     getCommissionsByOwner,
 
-    creditUserWallet
+    creditUserWallet,
+
+    getRecentWalletCredits
 };
+

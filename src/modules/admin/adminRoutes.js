@@ -68,7 +68,9 @@ const {
 
     getCommissionsByOwner,
 
-    creditWallet
+    creditWallet,
+
+    getRecentWalletCredits
 
 } = require("./adminController");
 
@@ -301,6 +303,11 @@ router.get(
 router.post(
     "/wallets/credit",
     creditWallet
+);
+
+router.get(
+    "/wallets/credits",
+    getRecentWalletCredits
 );
 
 module.exports = router;

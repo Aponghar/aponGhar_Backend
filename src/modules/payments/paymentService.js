@@ -258,10 +258,8 @@ const createPaymentOrder =
             );
         }
 
-        const payableAmount =
-            toMoney(booking.gateway_paid) > 0
-                ? toMoney(booking.gateway_paid)
-                : toMoney(booking.total_amount);
+        const payableAmount = toMoney(booking.gateway_paid);
+
 
         if (payableAmount <= 0) {
 

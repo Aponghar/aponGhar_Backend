@@ -739,6 +739,28 @@ const creditWallet =
         }
     };
 
+const getRecentWalletCredits =
+    async (req, res, next) => {
+
+        try {
+
+            const result =
+                await adminService
+                    .getRecentWalletCredits();
+
+            res.status(200).json({
+
+                success: true,
+
+                data: result
+            });
+
+        } catch (error) {
+
+            next(error);
+        }
+    };
+
 module.exports = {
 
     dashboard,
@@ -797,5 +819,8 @@ module.exports = {
 
     getCommissionsByOwner,
 
-    creditWallet
+    creditWallet,
+
+    getRecentWalletCredits
 };
+
