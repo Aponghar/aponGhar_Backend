@@ -99,6 +99,22 @@ const ownerCheckIn = async (ownerId, bookingCode, assignedRoomId) => {
     console.error("Failed to unlock owner earning in ownerCheckIn:", err.message);
   }
 
+  if (booking.payment_method === "OFFLINE") {
+    try {
+      const bookingRepository = require("../bookings/bookingRepository");
+      await bookingRepository.updateBookingStatus(
+        booking.id,
+        booking.booking_status,
+        "PAID"
+      );
+    } catch (err) {
+      console.error(
+        "Failed to update booking payment status to PAID for offline booking:",
+        err.message
+      );
+    }
+  }
+
   return {
     message: "Guest checked in successfully",
     checkInId: result.insertId,

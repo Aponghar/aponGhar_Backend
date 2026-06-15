@@ -75,6 +75,7 @@ const findBookingByCode = async (bookingCode, ownerId) => {
       b.room_id,
       b.booking_status,
       b.payment_status,
+      b.payment_method,
       b.total_amount,
       b.booking_base_amount,
       b.booking_commission_percentage,
