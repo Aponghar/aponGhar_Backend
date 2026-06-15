@@ -96,7 +96,7 @@ const errorMiddleware = (
     // GENERIC ERROR - don't expose stack trace in production
     const statusCode = err.statusCode || 500;
     const message = 
-        process.env.NODE_ENV === 'production'
+        process.env.NODE_ENV === 'production' && statusCode >= 500
             ? 'An error occurred processing your request'
             : err.message || 'Internal Server Error';
 

@@ -699,24 +699,21 @@ const createCommissionPaymentOrder =
                     );
 
             if (!commission) {
-
-                throw new Error(
-                    "Commission not found"
-                );
+                const err = new Error("Commission not found");
+                err.statusCode = 404;
+                throw err;
             }
 
             if (commission.payment_status === "PAID") {
-
-                throw new Error(
-                    "Commission is already paid"
-                );
+                const err = new Error("Commission is already paid");
+                err.statusCode = 400;
+                throw err;
             }
 
             if (commission.payment_status !== "PENDING") {
-
-                throw new Error(
-                    "Commission is not payable"
-                );
+                const err = new Error("Commission is not payable");
+                err.statusCode = 400;
+                throw err;
             }
 
             const amount =
@@ -725,10 +722,15 @@ const createCommissionPaymentOrder =
                 );
 
             if (amount <= 0) {
+                const err = new Error("Commission amount must be greater than zero");
+                err.statusCode = 400;
+                throw err;
+            }
 
-                throw new Error(
-                    "Commission amount must be greater than zero"
-                );
+            if (amount < 1.0) {
+                const err = new Error("Online payment via Razorpay requires a minimum amount of ₹1.00. Please record this payment offline instead.");
+                err.statusCode = 400;
+                throw err;
             }
 
             const razorpayOrder =
