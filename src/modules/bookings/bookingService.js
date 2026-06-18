@@ -361,6 +361,40 @@ const createBooking =
             throw new Error("This room only supports hourly bookings");
         }
 
+        // VALIDATE OPERATIONAL HOURS FOR HOURLY BOOKINGS
+        if (booking_type === "HOURLY") {
+            const property = await propertyRepository.getPropertyById(room.property_id);
+            if (property) {
+                const parseTimeToMinutesLocal = (timeStr, isCheckOut = false) => {
+                    if (!timeStr) return isCheckOut ? 1440 : 0;
+                    const parts = timeStr.split(":");
+                    const h = parseInt(parts[0], 10) || 0;
+                    const m = parseInt(parts[1], 10) || 0;
+                    if (isCheckOut && h === 0 && m === 0) {
+                        return 1440;
+                    }
+                    return h * 60 + m;
+                };
+
+                const checkInMins = parseTimeToMinutesLocal(check_in_time, false);
+                const durationHours = getHourlyDuration(pricing_option);
+                const checkOutMins = checkInMins + (durationHours * 60);
+
+                const propCheckInMins = parseTimeToMinutesLocal(property.check_in_time, false);
+                const propCheckOutMins = parseTimeToMinutesLocal(property.check_out_time, true);
+
+                if (checkInMins < propCheckInMins) {
+                    const readableTime = property.check_in_time ? property.check_in_time.slice(0, 5) : "00:00";
+                    throw new Error(`Check-in time must be at or after ${readableTime} for this property`);
+                }
+
+                if (checkOutMins > propCheckOutMins) {
+                    const readableTime = property.check_out_time ? property.check_out_time.slice(0, 5) : "24:00";
+                    throw new Error(`Check-out time must be at or before ${readableTime} for this property`);
+                }
+            }
+        }
+
         // GUEST VALIDATION
         const guestCapacity =
             toMoney(room.max_adults) +
