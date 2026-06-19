@@ -14,10 +14,11 @@ const submitApplication =
                 );
 
         if (existingApplication) {
-
-            throw new Error(
-                "Application already submitted"
+            const error = new Error(
+                "Application already submitted, team will contact you"
             );
+            error.statusCode = 400;
+            throw error;
         }
 
         applicationData.user_id = userId;
