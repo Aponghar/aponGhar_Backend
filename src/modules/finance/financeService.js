@@ -1,6 +1,52 @@
 const financeRepository =
     require("./financeRepository");
 
+const authRepository =
+    require("../auth/authRepository");
+
+const notificationService =
+    require("../notifications/notificationService");
+
+const safeSendOwnerEarningUnlocked = async (emailData) => {
+    try {
+        await notificationService.sendOwnerEarningUnlocked(emailData);
+    } catch (error) {
+        console.error("Owner earning unlocked email failed:", error.message);
+    }
+};
+
+const safeSendWithdrawalRequested = async (emailData) => {
+    try {
+        await notificationService.sendWithdrawalRequested(emailData);
+    } catch (error) {
+        console.error("Withdrawal requested email failed:", error.message);
+    }
+};
+
+const safeSendWithdrawalApproved = async (emailData) => {
+    try {
+        await notificationService.sendWithdrawalApproved(emailData);
+    } catch (error) {
+        console.error("Withdrawal approved email failed:", error.message);
+    }
+};
+
+const safeSendWithdrawalPaid = async (emailData) => {
+    try {
+        await notificationService.sendWithdrawalPaid(emailData);
+    } catch (error) {
+        console.error("Withdrawal paid email failed:", error.message);
+    }
+};
+
+const safeSendWithdrawalRejected = async (emailData) => {
+    try {
+        await notificationService.sendWithdrawalRejected(emailData);
+    } catch (error) {
+        console.error("Withdrawal rejected email failed:", error.message);
+    }
+};
+
 const ensureWallet =
     async (
         userId,
@@ -246,6 +292,25 @@ const requestWithdrawal =
                     "Withdrawal request created"
             });
 
+        // Send email to owner
+        try {
+            const owner = await authRepository.findUserById(ownerId);
+            if (owner?.email) {
+                safeSendWithdrawalRequested({
+                    email: owner.email,
+                    name: owner.full_name || "Host",
+                    amount: amount,
+                    upi_id: withdrawalData.upi_id,
+                    bank_name: withdrawalData.bank_name,
+                    account_holder_name: withdrawalData.account_holder_name,
+                    account_number: withdrawalData.account_number,
+                    ifsc_code: withdrawalData.ifsc_code
+                });
+            }
+        } catch (err) {
+            console.error("Failed to send withdrawal request email:", err.message);
+        }
+
         return {
 
             message:
@@ -314,6 +379,21 @@ const approveWithdrawal =
 
                 adminNotes
             );
+
+        // Send email to owner
+        try {
+            const owner = await authRepository.findUserById(withdrawal.owner_id);
+            if (owner?.email) {
+                safeSendWithdrawalApproved({
+                    email: owner.email,
+                    name: owner.full_name || "Host",
+                    amount: withdrawal.amount,
+                    admin_notes: adminNotes
+                });
+            }
+        } catch (err) {
+            console.error("Failed to send withdrawal approval email:", err.message);
+        }
 
         return {
 
@@ -408,6 +488,21 @@ const rejectWithdrawal =
                 adminNotes
             );
 
+        // Send email to owner
+        try {
+            const owner = await authRepository.findUserById(withdrawal.owner_id);
+            if (owner?.email) {
+                safeSendWithdrawalRejected({
+                    email: owner.email,
+                    name: owner.full_name || "Host",
+                    amount: withdrawal.amount,
+                    admin_notes: adminNotes
+                });
+            }
+        } catch (err) {
+            console.error("Failed to send withdrawal rejection email:", err.message);
+        }
+
         return {
 
             message:
@@ -482,6 +577,21 @@ const markWithdrawalPaid =
 
                 adminNotes
             );
+
+        // Send email to owner
+        try {
+            const owner = await authRepository.findUserById(withdrawal.owner_id);
+            if (owner?.email) {
+                safeSendWithdrawalPaid({
+                    email: owner.email,
+                    name: owner.full_name || "Host",
+                    amount: withdrawal.amount,
+                    admin_notes: adminNotes
+                });
+            }
+        } catch (err) {
+            console.error("Failed to send withdrawal paid email:", err.message);
+        }
 
         return {
 
@@ -594,6 +704,23 @@ const unlockOwnerEarning =
                 description:
                     "Owner earning unlocked for guest check-in"
             });
+
+        // Send email to owner
+        try {
+            const owner = await authRepository.findUserById(earning.owner_id);
+            if (owner?.email) {
+                safeSendOwnerEarningUnlocked({
+                    email: owner.email,
+                    name: owner.full_name || "Host",
+                    amount: earning.net_earning,
+                    balance: balanceAfter,
+                    reference_id: bookingCode,
+                    description: "Owner earning unlocked for guest check-in"
+                });
+            }
+        } catch (err) {
+            console.error("Failed to send owner earning unlocked email:", err.message);
+        }
 };
 
 const reverseOwnerEarning =

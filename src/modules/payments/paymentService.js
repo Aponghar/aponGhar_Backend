@@ -16,6 +16,9 @@ const bookingService =
 const propertyRepository =
     require("../properties/propertyRepository");
 
+const notificationService =
+    require("../notifications/notificationService");
+
 const authRepository =
     require("../auth/authRepository");
 
@@ -540,6 +543,23 @@ const verifyPayment =
         await creditOwnerEarning(
             confirmedBooking
         );
+
+        // Send payment success email (receipt)
+        try {
+            const guestUser = await authRepository.findUserById(confirmedBooking.user_id);
+            const property = await propertyRepository.getPropertyById(confirmedBooking.property_id);
+            await notificationService.sendPaymentSuccess({
+                email: confirmedBooking.guest_email || guestUser?.email || "",
+                name: confirmedBooking.customer_name || guestUser?.full_name || "",
+                booking_code: confirmedBooking.booking_code,
+                payment_id: razorpay_payment_id || transaction.razorpay_payment_id || "N/A",
+                amount: transaction.amount || confirmedBooking.gateway_paid,
+                payment_method: payment_method || confirmedBooking.payment_method || "ONLINE",
+                property_name: property?.property_name || "AponGhar Property"
+            });
+        } catch (err) {
+            logger.error(`Failed to send payment success email: ${err.message}`);
+        }
 
         return {
 

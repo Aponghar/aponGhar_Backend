@@ -188,6 +188,54 @@ const safeSendBookingConfirmation =
         }
 };
 
+const safeSendBookingRequestGuest = async (emailData) => {
+    try {
+        await notificationService.sendBookingRequestToGuest(emailData);
+    } catch (error) {
+        console.error("Booking request email to guest failed:", error.message);
+    }
+};
+
+const safeSendBookingRequestOwner = async (emailData) => {
+    try {
+        await notificationService.sendBookingRequestToOwner(emailData);
+    } catch (error) {
+        console.error("Booking request email to owner failed:", error.message);
+    }
+};
+
+const safeSendBookingConfirmationOwner = async (emailData) => {
+    try {
+        await notificationService.sendBookingConfirmationToOwner(emailData);
+    } catch (error) {
+        console.error("Booking confirmation email to owner failed:", error.message);
+    }
+};
+
+const safeSendBookingCancellationToGuest = async (emailData) => {
+    try {
+        await notificationService.sendBookingCancellationToGuest(emailData);
+    } catch (error) {
+        console.error("Booking cancellation email to guest failed:", error.message);
+    }
+};
+
+const safeSendBookingCancellationToOwner = async (emailData) => {
+    try {
+        await notificationService.sendBookingCancellationToOwner(emailData);
+    } catch (error) {
+        console.error("Booking cancellation email to owner failed:", error.message);
+    }
+};
+
+const safeSendBookingRejectionToGuest = async (emailData) => {
+    try {
+        await notificationService.sendBookingRejectionToGuest(emailData);
+    } catch (error) {
+        console.error("Booking rejection email to guest failed:", error.message);
+    }
+};
+
 const ensureUserWallet =
     async (userId) => {
 
@@ -762,6 +810,45 @@ const createBooking =
                 notification_type:
                     "BOOKING"
             });
+
+            // Send premium email notifications
+            try {
+                const user = await authRepository.findUserById(userId);
+                const owner = await authRepository.findUserById(property.owner_id);
+                const emailData = {
+                    email: guest_email || user?.email || "",
+                    name: customer_name || user?.full_name || "",
+                    guest_name: guest_name || customer_name || user?.full_name || "",
+                    guest_email: guest_email || user?.email || "",
+                    guest_age: guest_age,
+                    booking_code: bookingCode,
+                    property_name: property?.property_name || "AponGhar Property",
+                    room_name: room?.room_name,
+                    booking_type: booking_type,
+                    check_in: formatDateOnly(check_in_date),
+                    check_in_time: check_in_time,
+                    check_out: formatDateOnly(check_out_date),
+                    check_out_time: check_out_time,
+                    payment_method: payment_method,
+                    total_amount: totalAmount,
+                    net_earning: toMoney(pricing.booking_base_amount - pricing.booking_commission_amount),
+                    frontendBaseUrl: process.env.FRONTEND_URL || "https://aponghar-frontend.onrender.com"
+                };
+
+                if (payment_method === "OFFLINE") {
+                    safeSendBookingRequestGuest(emailData);
+                    if (owner?.email) {
+                        safeSendBookingRequestOwner({
+                            ...emailData,
+                            email: owner.email
+                        });
+                    }
+                } else if (payment_method === "ONLINE") {
+                    safeSendBookingRequestGuest(emailData);
+                }
+            } catch (err) {
+                console.error("Failed to send booking request emails:", err.message);
+            }
         }
 
         return {
@@ -938,6 +1025,31 @@ const confirmBooking =
                     booking.total_amount
             });
 
+        // Send booking confirmation email to property owner
+        try {
+            const owner = property?.owner_id ? await authRepository.findUserById(property.owner_id) : null;
+            if (owner?.email) {
+                safeSendBookingConfirmationOwner({
+                    email: owner.email,
+                    name: owner.full_name || "Owner",
+                    guest_name: booking.guest_name || booking.customer_name || user?.full_name || "",
+                    guest_email: booking.guest_email || user?.email || "",
+                    booking_code: booking.booking_code,
+                    property_name: property?.property_name || "AponGhar Property",
+                    room_name: bookingDetails?.room_name,
+                    check_in: formatDateOnly(booking.check_in_date),
+                    check_in_time: booking.check_in_time,
+                    check_out: formatDateOnly(booking.check_out_date),
+                    check_out_time: booking.check_out_time,
+                    payment_method: booking.payment_method,
+                    total_amount: booking.total_amount,
+                    net_earning: toMoney(booking.booking_base_amount - booking.booking_commission_amount)
+                });
+            }
+        } catch (err) {
+            console.error("Failed to send owner booking confirmation email:", err.message);
+        }
+
         // CREATE NOTIFICATION
         await safeCreateNotification({
 
@@ -1050,6 +1162,23 @@ const rejectBooking =
                 "BOOKING"
         });
 
+        // Send rejection email to guest
+        try {
+            const user = await authRepository.findUserById(booking.user_id);
+            const room = await roomRepository.getRoomById(booking.room_id);
+            safeSendBookingRejectionToGuest({
+                email: booking.guest_email || user?.email || "",
+                name: booking.customer_name || user?.full_name || "",
+                booking_code: booking.booking_code,
+                property_name: property?.property_name || "AponGhar Property",
+                room_name: room?.room_name || "Room",
+                total_amount: booking.total_amount,
+                reason: reason
+            });
+        } catch (err) {
+            console.error("Failed to send booking rejection email:", err.message);
+        }
+
         return {
 
             message:
@@ -1150,6 +1279,38 @@ const cancelBooking =
 
                 "REFUNDED"
             );
+
+        // Send cancellation emails to guest and owner
+        try {
+            const user = await authRepository.findUserById(booking.user_id);
+            const property = await propertyRepository.getPropertyById(booking.property_id);
+            const owner = property?.owner_id ? await authRepository.findUserById(property.owner_id) : null;
+            const room = await roomRepository.getRoomById(booking.room_id);
+
+            safeSendBookingCancellationToGuest({
+                email: booking.guest_email || user?.email || "",
+                name: booking.customer_name || user?.full_name || "",
+                booking_code: booking.booking_code,
+                property_name: property?.property_name || "AponGhar Property",
+                refund_amount: refund.refundAmount || 0,
+                balanceAfter: refund.balanceAfter
+            });
+
+            if (owner?.email) {
+                safeSendBookingCancellationToOwner({
+                    email: owner.email,
+                    name: owner.full_name || "Owner",
+                    guest_name: booking.guest_name || booking.customer_name || user?.full_name || "",
+                    property_name: property?.property_name || "AponGhar Property",
+                    booking_code: booking.booking_code,
+                    room_name: room?.room_name || "Room",
+                    check_in: formatDateOnly(booking.check_in_date),
+                    check_out: formatDateOnly(booking.check_out_date)
+                });
+            }
+        } catch (err) {
+            console.error("Failed to send booking cancellation emails:", err.message);
+        }
 
         return {
 

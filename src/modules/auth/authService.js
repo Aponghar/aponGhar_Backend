@@ -1,5 +1,5 @@
 const authRepository = require("./authRepository");
-const transporter = require("../../config/mail");
+const notificationService = require("../notifications/notificationService");
 const financeRepository =require("../finance/financeRepository");
 const logger =require("../../utils/logger/logger");
 
@@ -138,20 +138,10 @@ const sendVerificationOTP = async (userId) => {
         expiresAt
     );
 
-    await transporter.sendMail({
-
-        from: process.env.EMAIL_USER,
-
-        to: user.email,
-
-        subject: "OTP Verification",
-
-        html: `
-            <h2>Email Verification</h2>
-            <p>Your OTP is:</p>
-            <h1>${otpCode}</h1>
-            <p>Valid for 10 minutes.</p>
-        `
+    await notificationService.sendVerificationOTP({
+        email: user.email,
+        name: user.full_name,
+        otpCode
     });
 
     return {
@@ -217,25 +207,10 @@ const forgotPassword = async (
 
 
 
-    await transporter.sendMail({
-
-        from: process.env.EMAIL_USER,
-
-        to: user.email,
-
-        subject: "Reset Password",
-
-        html: `
-            <h2>Password Reset</h2>
-
-            <p>Click below link:</p>
-
-            <a href="${resetLink}">
-                Reset Password
-            </a>
-
-            <p>Valid for 15 minutes.</p>
-        `
+    await notificationService.sendPasswordReset({
+        email: user.email,
+        name: user.full_name,
+        resetLink
     });
 
     return {
