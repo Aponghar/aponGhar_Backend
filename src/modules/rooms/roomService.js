@@ -245,7 +245,9 @@ const lockRoomInventory = async (roomId, startDate, endDate, quantity = 1) => {
 
         // Check availability
         if (inventory.available_rooms < quantity) {
-            throw new Error(`Insufficient inventory for ${formattedDate}`);
+            const error = new Error(`Insufficient inventory for ${formattedDate}`);
+            error.statusCode = 400;
+            throw error;
         }
 
         // Reduce inventory
@@ -257,7 +259,9 @@ const lockRoomInventory = async (roomId, startDate, endDate, quantity = 1) => {
 
         // Safety check
         if (result.affectedRows === 0) {
-            throw new Error(`Inventory lock failed for ${formattedDate}`);
+            const error = new Error(`Inventory lock failed for ${formattedDate}`);
+            error.statusCode = 400;
+            throw error;
         }
 
         currentDate.setDate(currentDate.getDate() + 1);

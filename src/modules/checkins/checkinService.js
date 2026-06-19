@@ -299,16 +299,22 @@ const ownerManualCheckIn = async (ownerId, checkInData) => {
   );
   const room = rooms[0];
   if (!room) {
-    throw new Error("Room not found, unauthorized, or property is inactive");
+    const error = new Error("Room not found, unauthorized, or property is inactive");
+    error.statusCode = 404;
+    throw error;
   }
 
   const checkIn = new Date(check_in_date);
   const checkOut = new Date(check_out_date);
   if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
-    throw new Error("Invalid check-in or check-out date");
+    const error = new Error("Invalid check-in or check-out date");
+    error.statusCode = 400;
+    throw error;
   }
   if (checkIn >= checkOut) {
-    throw new Error("Check-out date must be after check-in date");
+    const error = new Error("Check-out date must be after check-in date");
+    error.statusCode = 400;
+    throw error;
   }
 
   const formattedCheckIn = formatDateOnly(check_in_date);
@@ -327,7 +333,9 @@ const ownerManualCheckIn = async (ownerId, checkInData) => {
     [assigned_room_id, formattedCheckOut, formattedCheckIn]
   );
   if (overlaps.length > 0) {
-    throw new Error("This room is already occupied or booked for the selected dates");
+    const error = new Error("This room is already occupied or booked for the selected dates");
+    error.statusCode = 409;
+    throw error;
   }
 
   // 3. Lock room inventory
