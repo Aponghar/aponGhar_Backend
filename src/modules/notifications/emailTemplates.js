@@ -134,7 +134,7 @@ const wrapInPremiumLayout = (title, content, preheaderText = "") => {
                     ${content}
                 </div>
                 <div class="footer">
-                    <p style="margin: 0 0 8px 0;">Need assistance? Contact our team at <a href="mailto:support@aponghar.in" style="color: #C49B45; text-decoration: none; font-weight: 600;">support@aponghar.in</a></p>
+                    <p style="margin: 0 0 8px 0;">Need assistance? Contact our team at <a href="mailto:support.aponghar@gmail.com" style="color: #C49B45; text-decoration: none; font-weight: 600;">support.aponghar@gmail.com</a></p>
                     <p style="margin: 0;">&copy; 2026 AponGhar. All rights reserved.</p>
                 </div>
             </div>

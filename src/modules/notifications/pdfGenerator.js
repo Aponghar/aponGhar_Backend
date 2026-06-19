@@ -113,7 +113,7 @@ const generateVoucherPDF = (data) => {
                 "• Identification: All check-in guests must present a valid government-issued photo ID card (Aadhaar, Passport, DL, Voter ID).",
                 "• Safety & Conduct: Standard property rules and check-in/out times must be respected. Early check-in or late check-out is subject to room availability.",
                 "• Inquiries: For any modifications, cancellations, or special requests, please contact the host directly or raise a ticket.",
-                "• Support: Need assistance? Reach our customer helpline via support@aponghar.in."
+                "• Support: Need assistance? Reach our customer helpline via support.aponghar@gmail.com."
             ];
 
             guidelines.forEach(line => {
@@ -128,7 +128,7 @@ const generateVoucherPDF = (data) => {
                .fontSize(8)
                .font("Helvetica")
                .text("AponGhar - Luxury Stays & Homestay Management Platform", 50, 768, { align: "center", width: 495 })
-               .text("Email: support@aponghar.in | Web: https://aponghar.in", 50, 780, { align: "center", width: 495 });
+               .text("Email: support.aponghar@gmail.com | Web: https://aponghar.in", 50, 780, { align: "center", width: 495 });
 
             doc.end();
         } catch (error) {
