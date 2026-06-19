@@ -1,5 +1,6 @@
 const resend = require("../../config/email");
 const notificationRepository = require("./notificationRepository");
+const { generateVoucherPDF } = require("./pdfGenerator");
 
 const {
     bookingConfirmationTemplate,
@@ -60,7 +61,9 @@ const sendBookingRequestToOwner = async (emailData) => {
 
 const sendBookingConfirmation = async (emailData) => {
     const html = bookingConfirmationTemplate(emailData);
-    const bookingFile = bookingFileTemplate(emailData);
+    
+    // Generate high-resolution PDF voucher
+    const pdfBuffer = await generateVoucherPDF(emailData);
 
     const { data, error } = await resend.emails.send({
         from: process.env.EMAIL_FROM || "AponGhar <noreply@aponghar.in>",
@@ -69,8 +72,8 @@ const sendBookingConfirmation = async (emailData) => {
         html,
         attachments: [
             {
-                filename: `${emailData.booking_code}.html`,
-                content: Buffer.from(bookingFile)
+                filename: `${emailData.booking_code}.pdf`,
+                content: pdfBuffer
             }
         ]
     });
