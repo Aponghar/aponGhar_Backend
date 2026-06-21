@@ -188,6 +188,18 @@ const getRoomImages = async (roomId) => {
     return rows;
 };
 
+const getRoomTypeImages = async (propertyId, roomType) => {
+    const [rows] = await pool.query(
+        `SELECT ri.*
+         FROM room_images ri
+         JOIN room r ON ri.room_id = r.room_id
+         WHERE r.property_id = ? AND r.room_type = ? AND r.is_active = TRUE
+         ORDER BY ri.id DESC`,
+        [propertyId, roomType]
+    );
+    return rows;
+};
+
 const verifyRoomOwnership = async (roomId, ownerId) => {
     const [rows] = await pool.query(
         `SELECT r.*, p.owner_id
@@ -441,7 +453,13 @@ const getAvailableRoomsByProperty = async (propertyId) => {
     const [rows] = await pool.query(
         `SELECT r.*, rp.base_price, rp.price_per_night, rp.price_3hours, rp.price_6hours, rp.price_9hours,
             p.commission_percentage,
-            (SELECT image_url FROM room_images WHERE room_id = r.room_id LIMIT 1) AS room_image
+            (
+                SELECT ri.image_url 
+                FROM room_images ri 
+                JOIN room rm ON ri.room_id = rm.room_id 
+                WHERE rm.property_id = r.property_id AND rm.room_type = r.room_type AND rm.is_active = TRUE 
+                LIMIT 1
+            ) AS room_image
         FROM room r
         JOIN (
             SELECT MIN(id) AS representative_id
@@ -552,5 +570,6 @@ module.exports = {
     getAmenities,
     generateRoomId,
     getAvailableRoomsByProperty,
-    getOwnerRoomManagement
+    getOwnerRoomManagement,
+    getRoomTypeImages
 };

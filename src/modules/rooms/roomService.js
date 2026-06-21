@@ -131,9 +131,12 @@ const uploadRoomImages = async (ownerId, roomId, files) => {
     return { message: "Room images uploaded successfully" };
 };
 
-const getRoomGallery = async (roomId) => {
+const getRoomGallery = async (roomId, all = false) => {
     const room = await roomRepository.getRoomById(roomId);
     if (!room) return [];
+    if (all) {
+        return roomRepository.getRoomTypeImages(room.property_id, room.room_type);
+    }
     return roomRepository.getRoomImages(room.room_id);
 };
 

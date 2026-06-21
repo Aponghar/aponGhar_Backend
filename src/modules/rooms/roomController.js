@@ -99,8 +99,9 @@ const uploadRoomImages = async (req, res, next) => {
 const getRoomGallery = async (req, res, next) => {
     try {
         const { roomId } = req.params;
+        const all = req.query.all === "true";
 
-        const images = await roomService.getRoomGallery(roomId);
+        const images = await roomService.getRoomGallery(roomId, all);
 
         res.status(200).json({
             success: true,
