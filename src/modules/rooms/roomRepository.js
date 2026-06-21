@@ -244,6 +244,14 @@ const updateRoom = async (roomId, roomData, currentRoomId) => {
                 throw new Error("Room ID already exists");
             }
 
+            // Update associated images to the new room_id first to maintain consistency
+            await connection.query(
+                `UPDATE room_images
+                SET room_id = ?
+                WHERE room_id = ?`,
+                [nextRoomId, currentRoomId]
+            );
+
             await connection.query(
                 `UPDATE room
                 SET room_id = ?
