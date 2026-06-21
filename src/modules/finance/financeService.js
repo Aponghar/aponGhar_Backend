@@ -422,8 +422,8 @@ const rejectWithdrawal =
         }
 
         if (
-            withdrawal.withdrawal_status !==
-            "PENDING"
+            withdrawal.withdrawal_status !== "PENDING" &&
+            withdrawal.withdrawal_status !== "APPROVED"
         ) {
 
             throw new Error(
@@ -474,6 +474,27 @@ const rejectWithdrawal =
 
                 newPendingBalance
             );
+
+
+
+        // CREATE REFUND TRANSACTION
+        await financeRepository
+            .createTransaction({
+                wallet_id:
+                    wallet.id,
+                transaction_type:
+                    "REFUND",
+                amount:
+                    withdrawal.amount,
+                balance_before:
+                    wallet.balance,
+                balance_after:
+                    newBalance,
+                reference_id:
+                    withdrawalId,
+                description:
+                    `Withdrawal request rejected by admin: ${adminNotes || "No reason provided"}`
+            });
 
 
 

@@ -125,14 +125,16 @@ const uploadRoomImages = async (ownerId, roomId, files) => {
 
     // Save images
     for (const file of files) {
-        await roomRepository.createRoomImage(roomId, file.path);
+        await roomRepository.createRoomImage(room.room_id, file.path);
     }
 
     return { message: "Room images uploaded successfully" };
 };
 
 const getRoomGallery = async (roomId) => {
-    return roomRepository.getRoomImages(roomId);
+    const room = await roomRepository.getRoomById(roomId);
+    if (!room) return [];
+    return roomRepository.getRoomImages(room.room_id);
 };
 
 const editRoom = async (ownerId, roomId, roomData) => {

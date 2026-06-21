@@ -16,10 +16,20 @@ const createRoom = async (roomData) => {
         room_size,
         room_amenities,
         room_benefits,
-        price_type
+        price_type,
+        room_id: custom_room_id
     } = roomData;
 
-    const room_id = generateRoomId();
+    const room_id = custom_room_id && custom_room_id.trim() ? custom_room_id.trim() : generateRoomId();
+
+    const [existingRows] = await pool.query(
+        `SELECT id FROM room WHERE room_id = ? LIMIT 1`,
+        [room_id]
+    );
+
+    if (existingRows.length > 0) {
+        throw new Error("Room ID already exists");
+    }
 
     const [result] = await pool.query(
         `INSERT INTO room (
@@ -92,13 +102,19 @@ const createRoomPrice = async (roomData) => {
 
 const createBulkRooms = async (rooms) => {
     const results = [];
+    let idx = 1;
     for (const roomData of rooms) {
-        const room = await createRoom(roomData);
+        const data = { ...roomData };
+        if (data.room_id && rooms.length > 1) {
+            data.room_id = `${data.room_id.trim()}-${idx}`;
+        }
+        const room = await createRoom(data);
         await createRoomPrice({
-            ...roomData,
+            ...data,
             room_id: room.room_id
         });
         results.push(room);
+        idx++;
     }
     return results;
 };
@@ -106,7 +122,8 @@ const createBulkRooms = async (rooms) => {
 const getPropertyRooms = async (propertyId) => {
     const [rows] = await pool.query(
         `SELECT r.*, rp.base_price, rp.price_per_night, rp.price_3hours, rp.price_6hours, rp.price_9hours,
-            p.commission_percentage
+            p.commission_percentage,
+            (SELECT image_url FROM room_images WHERE room_id = r.room_id LIMIT 1) AS room_image
         FROM room r
         LEFT JOIN room_price rp ON r.room_id = rp.room_id
         JOIN properties p ON r.property_id = p.id
@@ -415,7 +432,8 @@ const getAmenities = async () => {
 const getAvailableRoomsByProperty = async (propertyId) => {
     const [rows] = await pool.query(
         `SELECT r.*, rp.base_price, rp.price_per_night, rp.price_3hours, rp.price_6hours, rp.price_9hours,
-            p.commission_percentage
+            p.commission_percentage,
+            (SELECT image_url FROM room_images WHERE room_id = r.room_id LIMIT 1) AS room_image
         FROM room r
         JOIN (
             SELECT MIN(id) AS representative_id
