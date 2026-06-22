@@ -832,7 +832,7 @@ const createBooking =
                     payment_method: payment_method,
                     total_amount: totalAmount,
                     net_earning: toMoney(pricing.booking_base_amount - pricing.booking_commission_amount),
-                    frontendBaseUrl: process.env.FRONTEND_URL || "https://aponghar-frontend.onrender.com"
+                    frontendBaseUrl: process.env.FRONTEND_URL || "https://aponghar.in"
                 };
 
                 if (payment_method === "OFFLINE") {
