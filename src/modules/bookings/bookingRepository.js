@@ -441,6 +441,8 @@ const getOwnerBookings =
 
                 u.email AS user_email,
 
+                u.phone AS user_phone,
+
                 p.property_name,
 
                 r.room_name
@@ -478,6 +480,8 @@ const getBookingDetails =
                 u.full_name AS user_full_name,
 
                 u.email AS user_email,
+
+                u.phone AS user_phone,
 
                 p.property_name,
 

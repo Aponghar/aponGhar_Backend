@@ -49,6 +49,18 @@ const bookingSchema = Joi.object({
     const checkIn = new Date(value.check_in_date);
     const checkOut = new Date(value.check_out_date);
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkInDateLocal = new Date(
+        checkIn.getUTCFullYear(),
+        checkIn.getUTCMonth(),
+        checkIn.getUTCDate()
+    );
+
+    if (checkInDateLocal < today) {
+        return helpers.message("Check-in date cannot be before today");
+    }
+
     if (value.booking_type === "NIGHTLY" && checkOut <= checkIn) {
         return helpers.message("Check-out date must be after check-in date");
     }

@@ -268,7 +268,7 @@ const ensureUserWallet =
 };
 
 const refundBookingToWallet =
-    async (booking) => {
+    async (booking, applyPenalty = false) => {
 
         const walletRefund =
             toMoney(
@@ -282,9 +282,38 @@ const refundBookingToWallet =
                 )
                 : 0;
 
-        const refundAmount =
+        let refundAmount =
             walletRefund +
             gatewayRefund;
+
+        let description = "Refund credited for cancelled booking";
+
+        if (applyPenalty && refundAmount > 0) {
+            const checkInDate = new Date(booking.check_in_date);
+            const checkInTimeStr = booking.check_in_time || "12:00:00";
+            const parts = checkInTimeStr.split(":");
+            const hours = parseInt(parts[0], 10) || 0;
+            const minutes = parseInt(parts[1], 10) || 0;
+            const seconds = parseInt(parts[2], 10) || 0;
+
+            const checkInDateTime = new Date(
+                checkInDate.getFullYear(),
+                checkInDate.getMonth(),
+                checkInDate.getDate(),
+                hours,
+                minutes,
+                seconds
+            );
+
+            const now = new Date();
+            const msDiff = checkInDateTime.getTime() - now.getTime();
+            const hoursDiff = msDiff / (1000 * 60 * 60);
+
+            if (hoursDiff <= 24) {
+                refundAmount = toMoney(refundAmount * 0.5);
+                description = "50% cancellation refund (Late cancellation fee applied)";
+            }
+        }
 
         if (refundAmount <= 0) {
 
@@ -336,7 +365,7 @@ const refundBookingToWallet =
                     booking.booking_code,
 
                 description:
-                    "Refund credited for cancelled booking"
+                    description
             });
 
         return {
@@ -1269,7 +1298,8 @@ const cancelBooking =
         // UPDATE STATUS
         const refund =
             await refundBookingToWallet(
-                booking
+                booking,
+                true
             );
 
         if (booking.coupon_id) {
