@@ -36,6 +36,18 @@ const {
 const logger =
     require("../../utils/logger/logger");
 
+const formatDateOnly =
+    (value) => {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+};
+
 const isRazorpayConfigured =
     () => {
 
@@ -126,6 +138,19 @@ const ensureOwnerWallet =
 
 const creditOwnerEarning =
     async (booking) => {
+
+        const existingEarning =
+            await financeRepository
+                .getOwnerEarningByBookingId(
+                    booking.id
+                );
+
+        if (existingEarning) {
+            logger.info(
+                `Owner earning already exists for booking ID ${booking.id}. Skipping credit.`
+            );
+            return;
+        }
 
         const property =
             await propertyRepository
@@ -265,21 +290,59 @@ const createPaymentOrder =
 
 
         if (payableAmount <= 0) {
-
-            await bookingService
-                .confirmBooking(
-                    booking.id
+            await bookingRepository
+                .updateBookingStatus(
+                    booking.id,
+                    "PENDING",
+                    "PAID"
                 );
 
-            const confirmedBooking =
+            const updatedBooking =
                 await bookingRepository
                     .getBookingById(
                         booking.id
                     );
 
-            await creditOwnerEarning(
-                confirmedBooking
-            );
+            try {
+                const property = await propertyRepository.getPropertyById(updatedBooking.property_id);
+                const owner = property?.owner_id ? await authRepository.findUserById(property.owner_id) : null;
+                const guestUser = await authRepository.findUserById(updatedBooking.user_id);
+                const bookingDetails = await bookingRepository.getBookingDetails(updatedBooking.id);
+
+                const emailData = {
+                    email: owner?.email || "",
+                    name: owner?.full_name || "Owner",
+                    guest_name: updatedBooking.guest_name || updatedBooking.customer_name || guestUser?.full_name || "",
+                    guest_email: updatedBooking.guest_email || guestUser?.email || "",
+                    booking_code: updatedBooking.booking_code,
+                    property_name: property?.property_name || "AponGhar Property",
+                    room_name: bookingDetails?.room_name,
+                    check_in: formatDateOnly(updatedBooking.check_in_date),
+                    check_in_time: updatedBooking.check_in_time,
+                    check_out: formatDateOnly(updatedBooking.check_out_date),
+                    check_out_time: updatedBooking.check_out_time,
+                    payment_method: updatedBooking.payment_method,
+                    total_amount: updatedBooking.total_amount,
+                    net_earning: toMoney(updatedBooking.booking_base_amount - updatedBooking.booking_commission_amount),
+                    frontendBaseUrl: process.env.FRONTEND_URL || "https://aponghar.in"
+                };
+
+                if (owner?.email) {
+                    await notificationService.sendBookingRequestToOwner(emailData);
+                }
+
+                await notificationService.sendPaymentSuccess({
+                    email: updatedBooking.guest_email || guestUser?.email || "",
+                    name: updatedBooking.customer_name || guestUser?.full_name || "",
+                    booking_code: updatedBooking.booking_code,
+                    payment_id: "WALLET_PAYMENT",
+                    amount: updatedBooking.wallet_used,
+                    payment_method: "WALLET",
+                    property_name: property?.property_name || "AponGhar Property"
+                });
+            } catch (err) {
+                logger.error(`Failed to send emails/notifications for zero payable booking: ${err.message}`);
+            }
 
             return {
 
@@ -299,7 +362,7 @@ const createPaymentOrder =
                     false,
 
                 message:
-                    "Booking confirmed using wallet balance"
+                    "Booking paid using wallet balance. Awaiting owner confirmation."
             };
         }
 
@@ -527,38 +590,59 @@ const verifyPayment =
                 payment_method
             );
 
-        // CONFIRM BOOKING
-        await bookingService
-            .confirmBooking(
-
-                transaction.booking_id
+        // Decouple booking confirmation from payment verification:
+        // Set payment status to PAID, booking status remains PENDING
+        await bookingRepository
+            .updateBookingStatus(
+                transaction.booking_id,
+                "PENDING",
+                "PAID"
             );
 
-        const confirmedBooking =
+        const updatedBooking =
             await bookingRepository
                 .getBookingById(
                     transaction.booking_id
                 );
 
-        await creditOwnerEarning(
-            confirmedBooking
-        );
-
-        // Send payment success email (receipt)
+        // Send payment success email (receipt) and booking request to owner
         try {
-            const guestUser = await authRepository.findUserById(confirmedBooking.user_id);
-            const property = await propertyRepository.getPropertyById(confirmedBooking.property_id);
+            const guestUser = await authRepository.findUserById(updatedBooking.user_id);
+            const property = await propertyRepository.getPropertyById(updatedBooking.property_id);
+            const owner = property?.owner_id ? await authRepository.findUserById(property.owner_id) : null;
+            const bookingDetails = await bookingRepository.getBookingDetails(updatedBooking.id);
+
             await notificationService.sendPaymentSuccess({
-                email: confirmedBooking.guest_email || guestUser?.email || "",
-                name: confirmedBooking.customer_name || guestUser?.full_name || "",
-                booking_code: confirmedBooking.booking_code,
+                email: updatedBooking.guest_email || guestUser?.email || "",
+                name: updatedBooking.customer_name || guestUser?.full_name || "",
+                booking_code: updatedBooking.booking_code,
                 payment_id: razorpay_payment_id || transaction.razorpay_payment_id || "N/A",
-                amount: transaction.amount || confirmedBooking.gateway_paid,
-                payment_method: payment_method || confirmedBooking.payment_method || "ONLINE",
+                amount: transaction.amount || updatedBooking.gateway_paid,
+                payment_method: payment_method || updatedBooking.payment_method || "ONLINE",
                 property_name: property?.property_name || "AponGhar Property"
             });
+
+            if (owner?.email) {
+                await notificationService.sendBookingRequestToOwner({
+                    email: owner.email,
+                    name: owner.full_name || "Owner",
+                    guest_name: updatedBooking.guest_name || updatedBooking.customer_name || guestUser?.full_name || "",
+                    guest_email: updatedBooking.guest_email || guestUser?.email || "",
+                    booking_code: updatedBooking.booking_code,
+                    property_name: property?.property_name || "AponGhar Property",
+                    room_name: bookingDetails?.room_name,
+                    check_in: formatDateOnly(updatedBooking.check_in_date),
+                    check_in_time: updatedBooking.check_in_time,
+                    check_out: formatDateOnly(updatedBooking.check_out_date),
+                    check_out_time: updatedBooking.check_out_time,
+                    payment_method: updatedBooking.payment_method,
+                    total_amount: updatedBooking.total_amount,
+                    net_earning: toMoney(updatedBooking.booking_base_amount - updatedBooking.booking_commission_amount),
+                    frontendBaseUrl: process.env.FRONTEND_URL || "https://aponghar.in"
+                });
+            }
         } catch (err) {
-            logger.error(`Failed to send payment success email: ${err.message}`);
+            logger.error(`Failed to send verification success / booking request emails: ${err.message}`);
         }
 
         return {
@@ -1066,6 +1150,8 @@ const refundPayment =
     }
 };
 
+
+
 const getMyTransactions =
     async (userId) => {
 
@@ -1089,6 +1175,6 @@ module.exports = {
     verifyCommissionPayment,
     markCommissionPaymentFailed,
     refundPayment,
-    getMyTransactions
+    getMyTransactions,
+    creditOwnerEarning
 };
-

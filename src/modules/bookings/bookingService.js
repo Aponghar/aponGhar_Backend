@@ -949,6 +949,20 @@ const confirmBooking =
                     ? "PENDING"
                     : "PAID"
             );
+
+        if (booking.payment_method === "ONLINE") {
+            try {
+                const paymentService = require("../payments/paymentService");
+                await paymentService.creditOwnerEarning({
+                    ...booking,
+                    booking_status: "CONFIRMED",
+                    payment_status: "PAID"
+                });
+            } catch (err) {
+                console.error("Failed to credit owner earning during confirmation:", err.message);
+            }
+        }
+
         // INCREASE PROPERTY POPULARITY
         await propertyRepository
             .incrementPropertyBookings(
