@@ -512,6 +512,8 @@ async () => {
 
             oa.id,
 
+            oa.user_id,
+
             oa.property_name,
 
             oa.property_type,
