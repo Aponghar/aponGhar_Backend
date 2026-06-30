@@ -188,6 +188,33 @@ const deleteCoupon =
         }
 };
 
+const getApplicableCoupons =
+    async (req, res, next) => {
+
+        try {
+
+            const { propertyId } = req.params;
+
+            const coupons =
+                await couponService
+                    .getApplicableCoupons(
+                        propertyId,
+                        req.user?.id
+                    );
+
+            res.status(200).json({
+
+                success: true,
+
+                data: coupons
+            });
+
+        } catch (error) {
+
+            next(error);
+        }
+};
+
 module.exports = {
 
     createCoupon,
@@ -200,5 +227,7 @@ module.exports = {
 
     toggleCoupon,
 
-    deleteCoupon
+    deleteCoupon,
+
+    getApplicableCoupons
 };

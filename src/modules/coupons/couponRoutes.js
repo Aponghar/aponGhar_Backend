@@ -25,9 +25,23 @@ const {
 
     toggleCoupon,
 
-    deleteCoupon
+    deleteCoupon,
+
+    getApplicableCoupons
 
 } = require("./couponController");
+
+
+
+// GET APPLICABLE COUPONS FOR PROPERTY
+router.get(
+
+    "/applicable/:propertyId",
+
+    authMiddleware,
+
+    getApplicableCoupons
+);
 
 
 

@@ -549,15 +549,20 @@ const getAllProperties =
 
         try {
 
-            const properties =
+            const limit = parseInt(req.query.limit) || 20;
+            const page = parseInt(req.query.page) || 1;
+
+            const result =
                 await propertyService
-                    .getAllPublicProperties();
+                    .getAllPublicProperties(page, limit);
 
             res.status(200).json({
 
                 success: true,
 
-                data: properties
+                data: result.properties,
+
+                pagination: result.pagination
             });
 
         } catch (error) {

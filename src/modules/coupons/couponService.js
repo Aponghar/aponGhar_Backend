@@ -394,6 +394,34 @@ const removeCoupon =
         };
 };
 
+const getApplicableCoupons =
+    async (propertyId, userId) => {
+
+        const coupons =
+            await couponRepository
+                .getApplicableCouponsForProperty(propertyId);
+
+        const filteredCoupons = [];
+
+        for (const coupon of coupons) {
+            if (coupon.once_per_user && userId) {
+                const usageCount =
+                    await couponRepository
+                        .getUserCouponUsageCount(
+                            coupon.id,
+                            userId
+                        );
+
+                if (usageCount > 0) {
+                    continue;
+                }
+            }
+            filteredCoupons.push(coupon);
+        }
+
+        return filteredCoupons;
+};
+
 module.exports = {
 
     createCoupon,
@@ -408,5 +436,7 @@ module.exports = {
 
     toggleCoupon,
 
-    removeCoupon
+    removeCoupon,
+
+    getApplicableCoupons
 };

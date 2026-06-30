@@ -454,12 +454,10 @@ const getAvailableRoomsByProperty = async (propertyId) => {
         `SELECT r.*, rp.base_price, rp.price_per_night, rp.price_3hours, rp.price_6hours, rp.price_9hours,
             p.commission_percentage,
             (
-                SELECT ri.image_url 
+                SELECT GROUP_CONCAT(ri.image_url SEPARATOR '||')
                 FROM room_images ri 
-                JOIN room rm ON ri.room_id = rm.room_id 
-                WHERE rm.property_id = r.property_id AND rm.room_type = r.room_type AND rm.is_active = TRUE 
-                LIMIT 1
-            ) AS room_image
+                WHERE ri.room_id = r.room_id
+            ) AS room_gallery_images
         FROM room r
         JOIN (
             SELECT MIN(id) AS representative_id

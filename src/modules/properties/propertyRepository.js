@@ -944,11 +944,9 @@ const getCompletePropertyDetails =
 };
 
 const getAllProperties =
-    async () => {
+    async (limit, offset) => {
 
-        const [rows] = await pool.query(
-
-            `SELECT 
+        let query = `SELECT 
                 p.id,
                 p.property_name,
                 p.property_type,
@@ -959,15 +957,15 @@ const getAllProperties =
                 p.check_out_time,
                 p.description,
                 p.property_image,
-                GROUP_CONCAT(DISTINCT pi.image_url ORDER BY pi.id SEPARATOR '||') AS gallery_images,
-                MIN(rp.price_per_night) AS base_price_per_night,
-                MIN(COALESCE(rp.price_per_night, rp.base_price, 0) * (1 + COALESCE(p.commission_percentage, 0) / 100)) AS price_per_night,
+                p.average_rating,
+                p.total_reviews,
+                p.trust_score,
+                p.featured,
                 p.commission_percentage,
-                p.created_at
+                p.created_at,
+                GROUP_CONCAT(DISTINCT pi.image_url ORDER BY pi.id SEPARATOR '||') AS gallery_images
                 
             FROM properties p
-            LEFT JOIN room_price rp 
-                ON rp.property_id = p.id
             LEFT JOIN property_images pi
                 ON pi.property_id = p.id
                 
@@ -975,10 +973,42 @@ const getAllProperties =
                 AND p.approval_status = 'APPROVED'
                 
             GROUP BY p.id
-            ORDER BY p.created_at DESC`
-        );
+            ORDER BY p.created_at DESC`;
 
+        const params = [];
+        if (limit !== undefined && offset !== undefined) {
+            query += ` LIMIT ? OFFSET ?`;
+            params.push(Number(limit), Number(offset));
+        }
+
+        const [rows] = await pool.query(query, params);
         return rows;
+};
+
+const countAllProperties =
+    async () => {
+        const [rows] = await pool.query(
+            `SELECT COUNT(*) AS total 
+             FROM properties 
+             WHERE is_active = TRUE 
+             AND approval_status = 'APPROVED'`
+        );
+        return rows[0]?.total || 0;
+};
+
+const getRoomsForProperties = async (propertyIds) => {
+    if (!propertyIds || propertyIds.length === 0) return [];
+    
+    const [rows] = await pool.query(
+        `SELECT r.*, rp.base_price, rp.price_per_night, rp.price_3hours, rp.price_6hours, rp.price_9hours,
+            p.commission_percentage
+         FROM room r
+         LEFT JOIN room_price rp ON r.room_id = rp.room_id
+         JOIN properties p ON r.property_id = p.id
+         WHERE r.property_id IN (?) AND r.is_active = TRUE`,
+        [propertyIds]
+    );
+    return rows;
 };
 
 module.exports = {
@@ -1025,5 +1055,9 @@ module.exports = {
 
     getCompletePropertyDetails,
 
-    getAllProperties
+    getAllProperties,
+    
+    countAllProperties,
+
+    getRoomsForProperties
 };

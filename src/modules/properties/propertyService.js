@@ -474,10 +474,156 @@ const getPropertyDetails =
 };
 
 const getAllPublicProperties =
-    async () => {
+    async (page, limit) => {
+        const pageNum = parseInt(page) || 1;
+        const limitNum = parseInt(limit) || 20;
+        const offset = (pageNum - 1) * limitNum;
 
-        return propertyRepository
-            .getAllProperties();
+        // Fetch properties
+        const properties = await propertyRepository
+            .getAllProperties(limitNum, offset);
+
+        const total = await propertyRepository
+            .countAllProperties();
+
+        if (properties.length === 0) {
+            return {
+                properties: [],
+                pagination: {
+                    total,
+                    page: pageNum,
+                    limit: limitNum,
+                    pages: Math.ceil(total / limitNum)
+                }
+            };
+        }
+
+        // Get bulk rooms
+        const propertyIds = properties.map(p => p.id);
+        const allRooms = await propertyRepository
+            .getRoomsForProperties(propertyIds);
+
+        // Group rooms by property ID
+        const roomsByProperty = {};
+        allRooms.forEach(room => {
+            if (!roomsByProperty[room.property_id]) {
+                roomsByProperty[room.property_id] = [];
+            }
+            roomsByProperty[room.property_id].push(room);
+        });
+
+        // Enrich properties
+        const enrichedProperties = properties.map(property => {
+            const rooms = roomsByProperty[property.id] || [];
+            const allPriceEntries = [];
+            let maxGuests = 0;
+            let hasNightly = false;
+            let hasHourly = false;
+            const roomTypes = new Set();
+            const roomAmenityIds = new Set();
+            const roomAmenityGroups = [];
+
+            rooms.forEach((room) => {
+                const commission = Number(room.commission_percentage) || 0;
+                const multiplier = 1 + (commission / 100);
+                const applyCommission = (price) => {
+                    const p = Number(price) || 0;
+                    return p > 0 ? Math.round(p * multiplier) : 0;
+                };
+                
+                const prices = [
+                    { amount: applyCommission(room.price_per_night), period: "/night" },
+                    { amount: applyCommission(room.price_3hours), period: "/3h" },
+                    { amount: applyCommission(room.price_6hours), period: "/6h" },
+                    { amount: applyCommission(room.price_9hours), period: "/9h" },
+                    { amount: applyCommission(room.base_price), period: "" }
+                ].filter(p => p.amount > 0);
+
+                prices.forEach((entry) => allPriceEntries.push(entry));
+
+                const pricePerNight = Number(room.price_per_night) || 0;
+                const hourlyCandidates = [
+                    Number(room.price_3hours) || 0,
+                    Number(room.price_6hours) || 0,
+                    Number(room.price_9hours) || 0
+                ];
+
+                if (pricePerNight > 0) {
+                    hasNightly = true;
+                }
+
+                if (hourlyCandidates.some((price) => price > 0)) {
+                    hasHourly = true;
+                }
+
+                const adults = Number(room.max_adults) || 0;
+                const children = Number(room.max_children) || 0;
+                maxGuests = Math.max(maxGuests, adults + children);
+
+                if (room.room_type) {
+                    roomTypes.add(String(room.room_type).trim());
+                }
+
+                const currentRoomAmenityIds = [];
+                const parsedRoomAmenities = (() => {
+                    const val = room.room_amenities;
+                    if (!val) return [];
+                    if (Array.isArray(val)) return val;
+                    if (typeof val === "string") {
+                        try {
+                            const parsed = JSON.parse(val);
+                            return Array.isArray(parsed) ? parsed : [];
+                        } catch (e) {
+                            return [];
+                        }
+                    }
+                    return [];
+                })();
+
+                parsedRoomAmenities.forEach((amenity) => {
+                    const amenityId = Number(amenity);
+                    if (Number.isFinite(amenityId)) {
+                        roomAmenityIds.add(amenityId);
+                        currentRoomAmenityIds.push(amenityId);
+                    }
+                });
+
+                roomAmenityGroups.push([...new Set(currentRoomAmenityIds)]);
+            });
+
+            const fallbackPrice = Number(property.price_per_night) || 0;
+            if (fallbackPrice > 0) {
+                allPriceEntries.push({ amount: fallbackPrice, period: "/night" });
+            }
+
+            const cheapestEntry = allPriceEntries.length > 0
+                ? allPriceEntries.reduce((lowest, current) => {
+                    return current.amount < lowest.amount ? current : lowest;
+                })
+                : null;
+
+            return {
+                ...property,
+                effective_price: cheapestEntry ? cheapestEntry.amount : fallbackPrice,
+                effective_price_period: cheapestEntry ? cheapestEntry.period : (fallbackPrice > 0 ? "/night" : ""),
+                max_guests: maxGuests,
+                has_nightly: hasNightly || fallbackPrice > 0,
+                has_hourly: hasHourly,
+                room_types: [...roomTypes],
+                room_amenity_ids: [...roomAmenityIds],
+                room_amenity_groups: roomAmenityGroups
+            };
+        });
+
+        return {
+            properties: enrichedProperties,
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                pages: Math.ceil(total / limitNum)
+            }
+        };
 };
 
 

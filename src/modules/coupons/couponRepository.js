@@ -366,6 +366,27 @@ const deleteCouponUsageByBookingId =
         );
 };
 
+const getApplicableCouponsForProperty =
+    async (propertyId) => {
+
+        const [rows] =
+            await pool.query(
+
+                `SELECT *
+                FROM coupons
+                WHERE is_active = 1
+                  AND (property_id = ? OR property_id IS NULL)
+                  AND start_date <= NOW()
+                  AND expiry_date >= NOW()
+                  AND (usage_limit IS NULL OR used_count < usage_limit)
+                ORDER BY created_at DESC`,
+
+                [propertyId]
+            );
+
+        return rows;
+};
+
 module.exports = {
 
     createCoupon,
@@ -392,5 +413,7 @@ module.exports = {
 
     decrementCouponUsage,
 
-    deleteCouponUsageByBookingId
+    deleteCouponUsageByBookingId,
+
+    getApplicableCouponsForProperty
 };

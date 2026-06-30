@@ -303,7 +303,8 @@ const getAvailableRoomsByProperty = async (propertyId) => {
     return rooms.map(room => ({
         ...room,
         room_amenities: parseJsonArray(room.room_amenities),
-        room_benefits: parseJsonArray(room.room_benefits)
+        room_benefits: parseJsonArray(room.room_benefits),
+        room_images: room.room_gallery_images ? room.room_gallery_images.split("||").map(url => ({ image_url: url })) : []
     }));
 };
 
