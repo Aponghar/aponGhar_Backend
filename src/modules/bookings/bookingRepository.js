@@ -338,18 +338,37 @@ const getUserBookings =
 
                 p.property_name,
 
+                p.property_type,
+
+                p.address AS property_address,
+
                 p.location AS property_location,
 
                 p.city AS property_city,
 
+                p.state AS property_state,
+
+                p.country AS property_country,
+
+                p.latitude AS property_latitude,
+
+                p.longitude AS property_longitude,
+
+                p.google_maps_link AS property_google_maps_link,
+
                 r.room_name,
 
-                r.room_type
+                r.room_type,
+
+                o.full_name AS owner_name
 
             FROM bookings b
 
             LEFT JOIN properties p
             ON b.property_id = p.id
+
+            LEFT JOIN users o
+            ON p.owner_id = o.id
 
             LEFT JOIN room r
             ON b.room_id = r.id
