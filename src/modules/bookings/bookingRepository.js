@@ -340,6 +340,8 @@ const getUserBookings =
 
                 p.property_type,
 
+                p.property_image,
+
                 p.address AS property_address,
 
                 p.location AS property_location,
@@ -359,6 +361,22 @@ const getUserBookings =
                 r.room_name,
 
                 r.room_type,
+
+                r.max_adults AS room_max_adults,
+
+                r.max_children AS room_max_children,
+
+                r.bed_type AS room_bed_type,
+
+                r.room_size AS room_room_size,
+
+                r.room_amenities AS room_room_amenities,
+
+                r.room_benefits AS room_room_benefits,
+
+                r.description AS room_description,
+
+                (SELECT GROUP_CONCAT(image_url SEPARATOR '||') FROM room_images WHERE room_id = r.room_id) AS room_images_list,
 
                 o.full_name AS owner_name
 
