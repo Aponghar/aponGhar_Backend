@@ -60,6 +60,14 @@ const propertySchema = Joi.object({
 
     check_out_time:
         Joi.string()
+            .allow("", null),
+
+    check_in_time_hourly:
+        Joi.string()
+            .allow("", null),
+
+    check_out_time_hourly:
+        Joi.string()
             .allow("", null)
 });
 

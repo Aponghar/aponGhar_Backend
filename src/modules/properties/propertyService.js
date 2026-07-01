@@ -65,6 +65,14 @@ const uploadPropertyImages =
             );
         }
 
+        // CHECK PHOTO LIMIT (MAX 5)
+        const existingImages = await propertyRepository.getPropertyImages(propertyId);
+        if (existingImages.length + files.length > 5) {
+            const error = new Error(`Property photo limit reached. A property can have a maximum of 5 photos. Current photos: ${existingImages.length}`);
+            error.statusCode = 400;
+            throw error;
+        }
+
         // SAVE IMAGES
         for (const file of files) {
 

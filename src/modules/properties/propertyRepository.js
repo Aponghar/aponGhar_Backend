@@ -38,6 +38,10 @@ const createProperty =
 
             check_out_time,
 
+            check_in_time_hourly,
+
+            check_out_time_hourly,
+
             property_image
 
         } = propertyData;
@@ -76,11 +80,15 @@ const createProperty =
 
                 check_out_time,
 
+                check_in_time_hourly,
+
+                check_out_time_hourly,
+
                 property_image
 
             )
 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
             [
 
@@ -110,9 +118,13 @@ const createProperty =
 
                 google_maps_link,
 
-                check_in_time,
+                check_in_time || null,
 
-                check_out_time,
+                check_out_time || null,
+
+                check_in_time_hourly || null,
+
+                check_out_time_hourly || null,
 
                 property_image
 
@@ -248,7 +260,11 @@ const updateProperty =
 
             check_in_time,
 
-            check_out_time
+            check_out_time,
+
+            check_in_time_hourly,
+
+            check_out_time_hourly
 
         } = propertyData;
 
@@ -284,7 +300,11 @@ const updateProperty =
 
                 check_in_time = ?,
 
-                check_out_time = ?
+                check_out_time = ?,
+
+                check_in_time_hourly = ?,
+
+                check_out_time_hourly = ?
 
             WHERE id = ?`,
 
@@ -314,9 +334,13 @@ const updateProperty =
 
                 google_maps_link,
 
-                check_in_time,
+                check_in_time || null,
 
-                check_out_time,
+                check_out_time || null,
+
+                check_in_time_hourly || null,
+
+                check_out_time_hourly || null,
 
                 propertyId
             ]
@@ -955,6 +979,8 @@ const getAllProperties =
                 p.state,
                 p.check_in_time,
                 p.check_out_time,
+                p.check_in_time_hourly,
+                p.check_out_time_hourly,
                 p.description,
                 p.property_image,
                 p.average_rating,

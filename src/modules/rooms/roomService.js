@@ -123,6 +123,14 @@ const uploadRoomImages = async (ownerId, roomId, files) => {
         throw error;
     }
 
+    // Check photo limit (max 3)
+    const existingImages = await roomRepository.getRoomImages(room.room_id);
+    if (existingImages.length + files.length > 3) {
+        const error = new Error(`Room photo limit reached. A room can have a maximum of 3 photos. Current photos: ${existingImages.length}`);
+        error.statusCode = 400;
+        throw error;
+    }
+
     // Save images
     for (const file of files) {
         await roomRepository.createRoomImage(room.room_id, file.path);

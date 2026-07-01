@@ -457,16 +457,19 @@ const createBooking =
                 const durationHours = getHourlyDuration(pricing_option);
                 const checkOutMins = checkInMins + (durationHours * 60);
 
-                const propCheckInMins = parseTimeToMinutesLocal(property.check_in_time, false);
-                const propCheckOutMins = parseTimeToMinutesLocal(property.check_out_time, true);
+                const propCheckInStr = property.check_in_time_hourly || property.check_in_time;
+                const propCheckOutStr = property.check_out_time_hourly || property.check_out_time;
+
+                const propCheckInMins = parseTimeToMinutesLocal(propCheckInStr, false);
+                const propCheckOutMins = parseTimeToMinutesLocal(propCheckOutStr, true);
 
                 if (checkInMins < propCheckInMins) {
-                    const readableTime = property.check_in_time ? property.check_in_time.slice(0, 5) : "00:00";
+                    const readableTime = propCheckInStr ? propCheckInStr.slice(0, 5) : "00:00";
                     throw new Error(`Check-in time must be at or after ${readableTime} for this property`);
                 }
 
                 if (checkOutMins > propCheckOutMins) {
-                    const readableTime = property.check_out_time ? property.check_out_time.slice(0, 5) : "24:00";
+                    const readableTime = propCheckOutStr ? propCheckOutStr.slice(0, 5) : "24:00";
                     throw new Error(`Check-out time must be at or before ${readableTime} for this property`);
                 }
             }
