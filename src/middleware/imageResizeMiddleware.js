@@ -20,21 +20,21 @@ const resizeImages = async (req, res, next) => {
             const tempPath = file.path + "_temp";
             let sharpInstance = sharp(file.path);
 
-            // Resize to maximum 1200x1200px maintaining aspect ratio
+            // Resize to maximum 1600x1600px maintaining aspect ratio
             sharpInstance = sharpInstance.resize({
-                width: 1200,
-                height: 1200,
+                width: 1600,
+                height: 1600,
                 fit: "inside",
                 withoutEnlargement: true
             });
 
             // Compress based on extension
             if (ext === ".png") {
-                sharpInstance = sharpInstance.png({ quality: 80, compressionLevel: 8 });
+                sharpInstance = sharpInstance.png({ quality: 90, compressionLevel: 7 });
             } else if (ext === ".webp") {
-                sharpInstance = sharpInstance.webp({ quality: 80 });
+                sharpInstance = sharpInstance.webp({ quality: 90 });
             } else {
-                sharpInstance = sharpInstance.jpeg({ quality: 80, mozjpeg: true });
+                sharpInstance = sharpInstance.jpeg({ quality: 90, mozjpeg: true });
             }
 
             await sharpInstance.toFile(tempPath);

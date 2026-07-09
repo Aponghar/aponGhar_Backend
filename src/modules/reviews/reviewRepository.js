@@ -413,17 +413,16 @@ const updateTrustScore =
                 analytics.total_reviews || 0
             );
 
-        // BASIC TRUST FORMULA
-        const trustScore =
-
-            (
-                averageRating * 20
-            ) +
-
-            Math.min(
-                totalReviews,
-                100
-            );
+        // BAYESIAN TRUST SCORE FORMULA (0-100%)
+        // K = 5 (prior review count weight), B = 95 (prior default trust score)
+        const K = 5;
+        const B = 95;
+        const ratingPercent = averageRating * 20;
+        const trustScore = totalReviews === 0 
+            ? B 
+            : Math.min(100, Math.max(0, Math.round(
+                (totalReviews * ratingPercent + K * B) / (totalReviews + K)
+              )));
 
         await pool.query(
 
