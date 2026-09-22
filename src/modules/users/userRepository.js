@@ -41,11 +41,10 @@ const hasActiveBookings = async (userId) => {
     );
     if (userBookings.length > 0) return true;
 
-    // Check if user is host with upcoming guest bookings
+    // Check if user is host with upcoming guest bookings on their properties
     const [hostBookings] = await pool.query(
         `SELECT b.id FROM bookings b
-         JOIN rooms r ON b.room_id = r.id
-         JOIN properties p ON r.property_id = p.id
+         JOIN properties p ON b.property_id = p.id
          WHERE p.owner_id = ?
            AND b.booking_status IN ('PENDING', 'CONFIRMED')
            AND b.check_out_date >= CURDATE()
