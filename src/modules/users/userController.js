@@ -121,11 +121,35 @@ const changePassword = async (req, res, next) => {
     }
 };
 
+const deleteAccount = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const hasActive = await userRepository.hasActiveBookings(userId);
+
+        if (hasActive) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot delete account with active or upcoming bookings. Please complete or cancel them before proceeding."
+            });
+        }
+
+        await userRepository.deleteUserAccount(userId);
+
+        res.status(200).json({
+            success: true,
+            message: "Account deleted successfully"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     userDashboard,
     ownerDashboard,
     adminDashboard,
     getProfile,
     updateProfile,
-    changePassword
+    changePassword,
+    deleteAccount
 };

@@ -14,7 +14,8 @@ const {
     adminDashboard,
     getProfile,
     updateProfile,
-    changePassword
+    changePassword,
+    deleteAccount
 } = require("./userController");
 
 
@@ -69,5 +70,6 @@ router.get(
 router.get("/profile", authMiddleware, getProfile);
 router.put("/profile", authMiddleware, updateProfile);
 router.put("/change-password", authMiddleware, changePassword);
+router.delete("/profile", authMiddleware, deleteAccount);
 
 module.exports = router;

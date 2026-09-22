@@ -94,8 +94,6 @@ router.get(
 
     authMiddleware,
 
-    bookingLimiter,
-
     getMyBookings
 );
 
@@ -105,8 +103,6 @@ router.get(
     "/owner/dashboard",
 
     authMiddleware,
-
-    bookingLimiter,
 
     roleMiddleware("OWNER"),
 
@@ -123,8 +119,6 @@ router.get(
     authMiddleware,
 
     roleMiddleware("OWNER"),
-
-    bookingLimiter,
 
     getBookingDetails
 );

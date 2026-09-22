@@ -36,17 +36,18 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,ht
 
 app.use(cors({
     origin: (origin, callback) => {
+        // Allow mobile apps (no origin), localhost, and configured domains
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
             return;
         }
 
-        callback(new Error("Not allowed by CORS"));
+        callback(null, false);
     },
     credentials: true,
     optionsSuccessStatus: 200,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
 
 // RESPONSE COMPRESSION
