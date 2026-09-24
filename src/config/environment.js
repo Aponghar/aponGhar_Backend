@@ -6,11 +6,6 @@ const requiredEnvVars = [
     'JWT_SECRET',
     'RAZORPAY_KEY_ID',
     'RAZORPAY_KEY_SECRET',
-    'EMAIL_HOST',
-    'EMAIL_PORT',
-    'EMAIL_USER',
-    'EMAIL_PASS',
-    'EMAIL_FROM',
     'CLOUDINARY_CLOUD_NAME',
     'CLOUDINARY_API_KEY',
     'CLOUDINARY_API_SECRET'
@@ -52,6 +47,16 @@ const validateEnvironment = () => {
             missingVars.push(varName);
         }
     });
+
+    const hasEmailConfig = Boolean(
+        process.env.RESEND_API_KEY ||
+        process.env.EMAIL_PASS ||
+        (process.env.EMAIL_HOST && process.env.EMAIL_USER)
+    );
+
+    if (!hasEmailConfig) {
+        missingVars.push('RESEND_API_KEY or EMAIL_PASS');
+    }
 
     if (!hasDatabaseUrl()) {
         requiredDatabaseEnvVars.forEach(varGroup => {

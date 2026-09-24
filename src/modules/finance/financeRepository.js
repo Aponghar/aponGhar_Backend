@@ -68,6 +68,37 @@ const updateWalletBalance =
         );
 };
 
+const deductWalletBalanceAtomic = async (walletId, amount) => {
+    const [result] = await pool.query(
+        `UPDATE wallets
+        SET balance = balance - ?
+        WHERE id = ? AND balance >= ?`,
+        [amount, walletId, amount]
+    );
+    return result.affectedRows > 0;
+};
+
+const creditWalletBalanceAtomic = async (walletId, amount) => {
+    const [result] = await pool.query(
+        `UPDATE wallets
+        SET balance = balance + ?
+        WHERE id = ?`,
+        [amount, walletId]
+    );
+    return result.affectedRows > 0;
+};
+
+const holdPendingWithdrawalAtomic = async (walletId, amount) => {
+    const [result] = await pool.query(
+        `UPDATE wallets
+        SET balance = balance - ?,
+            pending_balance = pending_balance + ?
+        WHERE id = ? AND balance >= ?`,
+        [amount, amount, walletId, amount]
+    );
+    return result.affectedRows > 0;
+};
+
 
 const createTransaction =
     async (transactionData) => {
@@ -552,5 +583,11 @@ module.exports = {
 
     deleteOwnerEarning,
 
-    getBookingCodeById
+    getBookingCodeById,
+
+    deductWalletBalanceAtomic,
+
+    creditWalletBalanceAtomic,
+
+    holdPendingWithdrawalAtomic
 };

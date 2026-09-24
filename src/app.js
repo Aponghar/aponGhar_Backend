@@ -21,12 +21,12 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-app.use(
-    "/uploads",
-    express.static(
-        path.join(__dirname, "../uploads")
-    )
-);
+// SERVE ONLY PUBLIC UPLOADS (Properties, Rooms, Reviews, Banners)
+// SENSITIVE /uploads/owners (KYC/IDs) ARE EXCLUDED FROM PUBLIC STATIC SERVING
+app.use("/uploads/properties", express.static(path.join(__dirname, "../uploads/properties")));
+app.use("/uploads/rooms", express.static(path.join(__dirname, "../uploads/rooms")));
+app.use("/uploads/reviews", express.static(path.join(__dirname, "../uploads/reviews")));
+app.use("/uploads/banners", express.static(path.join(__dirname, "../uploads/banners")));
 
 
 // ENABLE CORS
@@ -57,8 +57,10 @@ app.use(compression());
 app.use(
 
     express.json({
-
-        limit: "50mb"
+        limit: "50mb",
+        verify: (req, res, buf) => {
+            req.rawBody = buf;
+        }
     })
 );
 app.use(

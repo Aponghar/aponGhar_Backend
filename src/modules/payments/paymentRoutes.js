@@ -24,8 +24,8 @@ const {
 
     refundPayment,
 
-    getTransactions
-
+    getTransactions,
+    handleWebhook
 } = require("./paymentController");
 
 
@@ -118,5 +118,12 @@ router.get(
     getTransactions
 );
 
+
+
+// RAZORPAY WEBHOOK (Asynchronous payment capture from Razorpay servers)
+router.post(
+    "/webhook",
+    handleWebhook
+);
 
 module.exports = router;

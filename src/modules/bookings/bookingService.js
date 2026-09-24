@@ -756,14 +756,21 @@ const createBooking =
 
 
 
-            // UPDATE WALLET
-            await financeRepository
-                .updateWalletBalance(
+            // ATOMIC WALLET DEDUCTION
+            const deductSuccess = await financeRepository.deductWalletBalanceAtomic(
+                wallet.id,
+                walletUsed
+            );
 
-                    wallet.id,
-
-                    balanceAfter
+            if (!deductSuccess) {
+                await roomService.releaseRoomInventory(
+                    room_id,
+                    check_in_date,
+                    inventoryEndDate,
+                    booked_rooms
                 );
+                throw new Error("Insufficient wallet balance or concurrent wallet operation");
+            }
 
 
 

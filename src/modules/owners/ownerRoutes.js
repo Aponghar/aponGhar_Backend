@@ -98,4 +98,23 @@ router.post(
     }
 );
 
+router.get(
+    "/documents/:filename",
+    authMiddleware,
+    roleMiddleware("ADMIN", "OWNER"),
+    (req, res) => {
+        const safeFilename = require("path").basename(req.params.filename);
+        const filePath = require("path").join(__dirname, "../../../uploads/owners", safeFilename);
+
+        if (!require("fs").existsSync(filePath)) {
+            return res.status(404).json({
+                success: false,
+                message: "Document not found"
+            });
+        }
+
+        res.sendFile(filePath);
+    }
+);
+
 module.exports = router;

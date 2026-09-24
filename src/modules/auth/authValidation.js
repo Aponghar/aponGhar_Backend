@@ -24,11 +24,9 @@ const loginSchema = Joi.object({
 
 
 const googleSchema = Joi.object({
-
-    email: Joi.string().email().required(),
-
-    full_name: Joi.string().min(3).max(100).required()
-});
+    id_token: Joi.string(),
+    credential: Joi.string()
+}).or("id_token", "credential");
 
 
 

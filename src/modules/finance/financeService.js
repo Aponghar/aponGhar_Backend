@@ -189,50 +189,18 @@ const requestWithdrawal =
                 withdrawalData.amount
             );
 
-        // VALIDATE BALANCE
-        if (
-            amount > wallet.balance
-        ) {
+        // ATOMIC DEDUCTION AND PENDING HOLD
+        const holdSuccess = await financeRepository.holdPendingWithdrawalAtomic(
+            wallet.id,
+            amount
+        );
 
-            throw new Error(
-                "Insufficient wallet balance"
-            );
+        if (!holdSuccess) {
+            throw new Error("Insufficient wallet balance or concurrent withdrawal attempt");
         }
 
-        // AVAILABLE BALANCE
-        const availableBalance =
-
-            Number(wallet.balance) -
-            amount;
-
-        // PENDING BALANCE
-        const pendingBalance =
-
-            Number(
-                wallet.pending_balance || 0
-            ) + amount;
-
-
-
-        // UPDATE WALLET
-        await financeRepository
-            .updateWalletBalance(
-
-                wallet.id,
-
-                availableBalance
-            );
-
-
-
-        // UPDATE PENDING
-        await financeRepository
-            .updatePendingBalance(
-
-                wallet.id,
-
-                pendingBalance
-            );
+        const balanceBefore = Number(wallet.balance);
+        const availableBalance = balanceBefore - amount;
 
 
 

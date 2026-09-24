@@ -1,3 +1,4 @@
+const pool = require("../../config/db");
 const crypto =
     require("crypto");
 
@@ -1166,8 +1167,124 @@ const getMyTransactions =
 
 
 
-module.exports = {
+const handleRazorpayWebhook = async (rawBody, signature, eventData) => {
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET;
+    if (!webhookSecret) {
+        throw new Error("Razorpay webhook secret is not configured");
+    }
 
+    if (!signature) {
+        throw new Error("Missing x-razorpay-signature header");
+    }
+
+    const expectedSignature = crypto
+        .createHmac("sha256", webhookSecret)
+        .update(rawBody)
+        .digest("hex");
+
+    if (expectedSignature !== signature) {
+        throw new Error("Invalid Razorpay webhook signature");
+    }
+
+    const event = eventData.event;
+    if (event === "payment.captured" || event === "order.paid") {
+        const paymentEntity = eventData.payload?.payment?.entity;
+        const orderId = paymentEntity?.order_id || eventData.payload?.order?.entity?.id;
+        const paymentId = paymentEntity?.id;
+        const paymentMethod = paymentEntity?.method || "ONLINE";
+
+        if (!orderId) {
+            return { message: "Ignored: No order_id in webhook" };
+        }
+
+        // 1. Reconcile booking payment
+        const transaction = await paymentRepository.getTransactionByOrderId(orderId);
+        if (transaction && transaction.payment_status !== "SUCCESS") {
+            await paymentRepository.updateTransaction(
+                orderId,
+                paymentId,
+                "SUCCESS",
+                paymentMethod
+            );
+
+            await bookingRepository.updateBookingStatus(
+                transaction.booking_id,
+                "PENDING",
+                "PAID"
+            );
+
+            const updatedBooking = await bookingRepository.getBookingById(transaction.booking_id);
+            if (updatedBooking) {
+                try {
+                    const guestUser = await authRepository.findUserById(updatedBooking.user_id);
+                    const property = await propertyRepository.getPropertyById(updatedBooking.property_id);
+                    const owner = property?.owner_id ? await authRepository.findUserById(property.owner_id) : null;
+                    const bookingDetails = await bookingRepository.getBookingDetails(updatedBooking.id);
+
+                    await notificationService.sendPaymentSuccess({
+                        email: updatedBooking.guest_email || guestUser?.email || "",
+                        name: updatedBooking.customer_name || guestUser?.full_name || "",
+                        booking_code: updatedBooking.booking_code,
+                        payment_id: paymentId || "N/A",
+                        amount: transaction.amount || updatedBooking.gateway_paid,
+                        payment_method: paymentMethod,
+                        property_name: property?.property_name || "AponGhar Property"
+                    });
+
+                    if (owner?.email) {
+                        await notificationService.sendBookingRequestToOwner({
+                            email: owner.email,
+                            name: owner.full_name || "Owner",
+                            guest_name: updatedBooking.guest_name || updatedBooking.customer_name || guestUser?.full_name || "",
+                            guest_email: updatedBooking.guest_email || guestUser?.email || "",
+                            booking_code: updatedBooking.booking_code,
+                            property_name: property?.property_name || "AponGhar Property",
+                            room_name: bookingDetails?.room_name,
+                            check_in: formatDateOnly(updatedBooking.check_in_date),
+                            check_in_time: updatedBooking.check_in_time,
+                            check_out: formatDateOnly(updatedBooking.check_out_date),
+                            check_out_time: updatedBooking.check_out_time,
+                            payment_method: updatedBooking.payment_method,
+                            total_amount: updatedBooking.total_amount,
+                            net_earning: toMoney(updatedBooking.booking_base_amount - updatedBooking.booking_commission_amount),
+                            frontendBaseUrl: process.env.FRONTEND_URL || "https://aponghar.in"
+                        });
+                    }
+                } catch (err) {
+                    logger.error("Webhook email sending error: " + err.message);
+                }
+            }
+
+            return { message: "Booking payment reconciled successfully from webhook", booking_id: transaction.booking_id };
+        }
+
+        // 2. Reconcile owner commission payment
+        const [commissionRows] = await pool.query(
+            "SELECT * FROM admin_commissions WHERE razorpay_order_id = ?",
+            [orderId]
+        );
+        const commission = commissionRows && commissionRows[0];
+        if (commission && commission.payment_status !== "PAID") {
+            await pool.query(
+                `UPDATE admin_commissions 
+                 SET payment_status = 'PAID',
+                     paid_at = NOW(),
+                     razorpay_payment_id = ?,
+                     razorpay_payment_status = 'SUCCESS',
+                     payment_method = ?
+                 WHERE id = ?`,
+                [paymentId, paymentMethod, commission.id]
+            );
+            return { message: "Commission payment reconciled successfully from webhook", commission_id: commission.id };
+        }
+
+        return { message: "Payment already marked SUCCESS or not found" };
+    }
+
+    return { message: "Webhook event acknowledged: " + event };
+};
+
+module.exports = {
     createPaymentOrder,
     verifyPayment,
     markPaymentFailed,
@@ -1176,5 +1293,6 @@ module.exports = {
     markCommissionPaymentFailed,
     refundPayment,
     getMyTransactions,
-    creditOwnerEarning
+    creditOwnerEarning,
+    handleRazorpayWebhook
 };

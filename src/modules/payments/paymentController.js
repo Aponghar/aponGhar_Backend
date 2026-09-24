@@ -213,8 +213,31 @@ const getTransactions =
 };
 
 
-module.exports = {
+const handleWebhook = async (req, res, next) => {
+    try {
+        const signature = req.headers['x-razorpay-signature'];
+        const rawBody = req.rawBody ? req.rawBody.toString() : JSON.stringify(req.body);
 
+        const result = await paymentService.handleRazorpayWebhook(
+            rawBody,
+            signature,
+            req.body
+        );
+
+        res.status(200).json({
+            success: true,
+            data: result
+        });
+    } catch (error) {
+        console.error('Razorpay Webhook Error:', error.message);
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+module.exports = {
     createOrder,
     verifyPayment,
     markPaymentFailed,
@@ -222,5 +245,6 @@ module.exports = {
     verifyCommissionPayment,
     markCommissionPaymentFailed,
     refundPayment,
-    getTransactions
+    getTransactions,
+    handleWebhook
 };

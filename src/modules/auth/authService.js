@@ -2,6 +2,9 @@ const authRepository = require("./authRepository");
 const notificationService = require("../notifications/notificationService");
 const financeRepository =require("../finance/financeRepository");
 const logger =require("../../utils/logger/logger");
+const crypto = require("crypto");
+const { OAuth2Client } = require("google-auth-library");
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 
 const {
@@ -255,15 +258,50 @@ const resetPassword = async (
     };
 };
 
-const googleLoginUser = async ({ email, full_name }) => {
+const googleLoginUser = async ({ id_token, credential }) => {
+    const rawToken = id_token || credential;
+    if (!rawToken) {
+        throw new Error("Google authentication token is required");
+    }
+
+    let payload;
+    try {
+        const ticket = await googleClient.verifyIdToken({
+            idToken: rawToken,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+        payload = ticket.getPayload();
+    } catch (err) {
+        try {
+            const tokenInfo = await googleClient.getTokenInfo(rawToken);
+            if (tokenInfo && tokenInfo.email) {
+                payload = {
+                    email: tokenInfo.email,
+                    name: tokenInfo.email.split("@")[0]
+                };
+            } else {
+                throw new Error("Missing email in token info");
+            }
+        } catch (tokenInfoErr) {
+            logger.warn(`Google token verification failed: ${err.message}`);
+            throw new Error("Invalid Google authentication token");
+        }
+    }
+
+    if (!payload || !payload.email) {
+        throw new Error("Invalid Google account profile");
+    }
+
+    const email = payload.email.toLowerCase().trim();
+    const full_name = payload.name || email.split("@")[0];
 
     let user =
         await authRepository.findUserByEmail(email);
 
     if (!user) {
-
+        const randomPassword = crypto.randomBytes(32).toString("hex");
         const hashedPassword =
-            await hashPassword("GoogleOAuthPassword2026!");
+            await hashPassword(randomPassword);
 
         const userData = {
             full_name,

@@ -233,54 +233,68 @@ const lockRoomInventory = async (roomId, startDate, endDate, quantity = 1) => {
     const currentDate = new Date(startDate);
     const lastDate = new Date(endDate);
     const roomCount = await roomRepository.getActiveRoomCountForType(roomId);
+    const lockedDates = [];
 
-    while (currentDate < lastDate) {
-        const formattedDate = formatDateOnly(currentDate);
+    try {
+        while (currentDate < lastDate) {
+            const formattedDate = formatDateOnly(currentDate);
 
-        // Check inventory
-        let inventory = await roomRepository.getInventoryByDate(
-            roomId,
-            formattedDate
-        );
-
-        if (!inventory) {
-            await roomRepository.createInventoryRecord(
-                roomId,
-                formattedDate,
-                roomCount
-            );
-
-            inventory = await roomRepository.getInventoryByDate(
+            // Check inventory
+            let inventory = await roomRepository.getInventoryByDate(
                 roomId,
                 formattedDate
             );
+
+            if (!inventory) {
+                await roomRepository.createInventoryRecord(
+                    roomId,
+                    formattedDate,
+                    roomCount
+                );
+
+                inventory = await roomRepository.getInventoryByDate(
+                    roomId,
+                    formattedDate
+                );
+            }
+
+            // Check availability
+            if (!inventory || inventory.available_rooms < quantity) {
+                const error = new Error(`Insufficient inventory for ${formattedDate}`);
+                error.statusCode = 400;
+                throw error;
+            }
+
+            // Reduce inventory
+            const result = await roomRepository.reduceInventory(
+                roomId,
+                formattedDate,
+                quantity
+            );
+
+            // Safety check
+            if (result.affectedRows === 0) {
+                const error = new Error(`Inventory lock failed for ${formattedDate}`);
+                error.statusCode = 400;
+                throw error;
+            }
+
+            lockedDates.push(formattedDate);
+            currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // Check availability
-        if (inventory.available_rooms < quantity) {
-            const error = new Error(`Insufficient inventory for ${formattedDate}`);
-            error.statusCode = 400;
-            throw error;
+        return { message: "Inventory locked successfully" };
+    } catch (err) {
+        // Rollback all previously locked dates in this attempt to prevent inventory leaks
+        for (const lockedDate of lockedDates) {
+            try {
+                await roomRepository.restoreInventory(roomId, lockedDate, quantity);
+            } catch (rollbackErr) {
+                console.error(`Failed to rollback inventory for ${lockedDate}:`, rollbackErr);
+            }
         }
-
-        // Reduce inventory
-        const result = await roomRepository.reduceInventory(
-            roomId,
-            formattedDate,
-            quantity
-        );
-
-        // Safety check
-        if (result.affectedRows === 0) {
-            const error = new Error(`Inventory lock failed for ${formattedDate}`);
-            error.statusCode = 400;
-            throw error;
-        }
-
-        currentDate.setDate(currentDate.getDate() + 1);
+        throw err;
     }
-
-    return { message: "Inventory locked successfully" };
 };
 
 const releaseRoomInventory = async (roomId, startDate, endDate, quantity = 1) => {
