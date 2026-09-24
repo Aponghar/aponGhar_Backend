@@ -5,10 +5,7 @@ const requiredEnvVars = [
     'PORT',
     'JWT_SECRET',
     'RAZORPAY_KEY_ID',
-    'RAZORPAY_KEY_SECRET',
-    'CLOUDINARY_CLOUD_NAME',
-    'CLOUDINARY_API_KEY',
-    'CLOUDINARY_API_SECRET'
+    'RAZORPAY_KEY_SECRET'
 ];
 
 const hasDatabaseUrl = () =>
@@ -47,6 +44,22 @@ const validateEnvironment = () => {
             missingVars.push(varName);
         }
     });
+
+    const hasAwsConfig = Boolean(
+        process.env.AWS_ACCESS_KEY_ID &&
+        process.env.AWS_SECRET_ACCESS_KEY &&
+        (process.env.AWS_S3_BUCKET_NAME || process.env.AWS_BUCKET_NAME)
+    );
+
+    const hasCloudinaryConfig = Boolean(
+        process.env.CLOUDINARY_CLOUD_NAME &&
+        process.env.CLOUDINARY_API_KEY &&
+        process.env.CLOUDINARY_API_SECRET
+    );
+
+    if (!hasAwsConfig && !hasCloudinaryConfig) {
+        missingVars.push('AWS S3 credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET_NAME)');
+    }
 
     const hasEmailConfig = Boolean(
         process.env.RESEND_API_KEY ||

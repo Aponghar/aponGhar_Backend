@@ -1,22 +1,10 @@
-const s3Upload = require("./s3UploadMiddleware");
-const cloudinary = require("../config/cloudinary");
+const { PutObjectCommand } = require("@aws-sdk/client-s3");
+const { s3Client, bucketName, region } = require("../config/s3");
 const fs = require("fs").promises;
+const path = require("path");
 
-const isAwsConfigured = () => {
-    return Boolean(
-        process.env.AWS_ACCESS_KEY_ID &&
-        process.env.AWS_SECRET_ACCESS_KEY &&
-        (process.env.AWS_S3_BUCKET_NAME || process.env.AWS_BUCKET_NAME)
-    );
-};
-
-const storageUpload = async (req, res, next) => {
-    // If AWS credentials are configured, use AWS S3 upload
-    if (isAwsConfigured()) {
-        return s3Upload(req, res, next);
-    }
-
-    // Fallback to Cloudinary if AWS credentials are not yet populated
+const s3Upload = async (req, res, next) => {
+    // If no files uploaded, skip
     if (!req.file && (!req.files || req.files.length === 0)) {
         return next();
     }
@@ -39,11 +27,21 @@ const storageUpload = async (req, res, next) => {
                 folderName = "banners";
             }
 
-            // Upload to Cloudinary
-            const result = await cloudinary.uploader.upload(file.path, {
-                folder: `hotel_booking_system/${folderName}`,
-                resource_type: "auto"
+            const fileName = path.basename(file.path);
+            const s3Key = `hotel_booking_system/${folderName}/${fileName}`;
+
+            // Read the processed/optimized file
+            const fileBuffer = await fs.readFile(file.path);
+
+            // Upload to S3
+            const command = new PutObjectCommand({
+                Bucket: bucketName,
+                Key: s3Key,
+                Body: fileBuffer,
+                ContentType: file.mimetype || "image/jpeg"
             });
+
+            await s3Client.send(command);
 
             // Delete local temporary file
             try {
@@ -52,9 +50,15 @@ const storageUpload = async (req, res, next) => {
                 console.error(`Failed to delete local temporary file ${file.path}:`, err);
             }
 
-            // Update file details to use the secure Cloudinary URL
-            file.path = result.secure_url;
-            file.cloudinary_id = result.public_id;
+            // Determine URL
+            const publicUrl = process.env.AWS_CLOUDFRONT_DOMAIN
+                ? `https://${process.env.AWS_CLOUDFRONT_DOMAIN}/${s3Key}`
+                : `https://${bucketName}.s3.${region}.amazonaws.com/${s3Key}`;
+
+            // Update file details to use the S3 URL
+            file.path = publicUrl;
+            file.s3_key = s3Key;
+            file.cloudinary_id = s3Key; // Backwards compatibility for any legacy references
         };
 
         if (req.file) {
@@ -67,9 +71,9 @@ const storageUpload = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error("Cloudinary upload middleware error:", error);
+        console.error("S3 upload middleware error:", error);
         next(error);
     }
 };
 
-module.exports = storageUpload;
+module.exports = s3Upload;
